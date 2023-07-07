@@ -12,6 +12,7 @@ jobs:
     steps:
       - run: |
           pwd
+          ls
           python3 tools/api.py scoreboard
           git config user.name  "Cron"
           git config user.email "github@peria.jp"
