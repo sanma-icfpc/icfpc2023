@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 
+import time
 import os
 import sys
 import json
 import requests
+import dateutil.parser
 
 URL_DOMAIN = "api.icfpcontest.com"
 BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 DATA_DIR = f"{BASE_DIR}/data"
 PROBLEMS_DIR = f"{DATA_DIR}/problems"
+SCOREBOARD_DIR = f"{DATA_DIR}/scoreboard"
 
 
 def command_problem(ids):
@@ -58,6 +61,41 @@ def command_problems(options):
     return True
 
 
+def command_scoreboard(_options):
+    # scoreboard
+    url = f"https://{URL_DOMAIN}/scoreboard"
+    response = requests.get(url)
+    data = response.text
+    data = data.replace("\\n", '\n')
+    data = data.replace('\\"', '"')
+    data = json.loads(data)
+
+    updated_at = dateutil.parser.parse(data['updated_at'])
+    start_at = dateutil.parser.parse('2023-07-07T12:00:00Z')
+    duration = (updated_at - start_at).seconds // 60
+    filepath = f"{SCOREBOARD_DIR}/{duration:05d}.json"
+    with open(filepath, 'w') as f:
+        json.dump(data, f)
+    print(f"Save scoreboard {duration:05d}.json at {updated_at}.")
+
+    # Dump some data
+    if data['frozen']:
+        print("** Frozen **")
+
+    print("Top 10 scores are:")
+    for (rank, team) in enumerate(data['scoreboard']):
+        name = team['username']
+        if rank >= 10 and name != 'sanma':
+            continue
+
+        if len(name) > 20:
+            name = name[:17] + '...'
+        score = team['score']
+        print("{:2d} : {:20s} : {:13.1f}".format(rank+1, name, score))
+
+    return True
+
+
 def main():
     subcommand = "" if len(sys.argv) < 2 else sys.argv[1]
     if subcommand == "problem":
@@ -65,6 +103,9 @@ def main():
             return
     elif subcommand == "problems":
         if command_problems(sys.argv[2:]):
+            return
+    elif subcommand == "scoreboard":
+        if command_scoreboard(sys.argv[2:]):
             return
 
     print("Usage: " + sys.argv[0] + " subcommand", file=sys.stderr)
