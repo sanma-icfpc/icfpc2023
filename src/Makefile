@@ -59,6 +59,11 @@ SOLVER_OBJS=$(SOLVER_SRCS:%.cpp=$(BUILD_PATH)/%.o)
 SOLVER_DEPS=$(SOLVER_SRCS:%.cpp=$(BUILD_PATH)/%.d)
 SOLVER_BUILD_PATH=build/solvers
 
+K3SOLVER_SRCS=personal/k3/solver.cpp
+K3SOLVER_OBJS=$(K3SOLVER_SRCS:%.cpp=$(BUILD_PATH)/%.o)
+K3SOLVER_DEPS=$(K3SOLVER_SRCS:%.cpp=$(BUILD_PATH)/%.d)
+K3SOLVER_BUILD_PATH=build/personal/k3
+
 GTEST_SRCS=$(GTEST_DIR)/src/gtest-all.cc $(GTEST_DIR)/src/gtest_main.cc
 TEST_BUILD_PATH=build/tests
 TEST_CXXFLAGS=-I$(GTEST_DIR) -I$(GTEST_DIR)/include
@@ -68,7 +73,7 @@ TEST_OBJS=$(TEST_SRCS:%.cpp=$(BUILD_PATH)/%.o)
 TEST_DEPS=$(TEST_SRCS:%.cpp=$(BUILD_PATH)/%.d)
 $(TEST_OBJS): CXXFLAGS+=$(TEST_CXXFLAGS)
 
-TARGETS=test # judge test_mpir
+TARGETS=k3solver test # judge test_mpir
 
 .PHONY: all
 all: dirs $(TARGETS)
@@ -83,13 +88,16 @@ clean:
 
 .PHONY: dirs
 dirs:
-	@mkdir -p $(BUILD_PATH) $(TEST_BUILD_PATH)
+	@mkdir -p $(BUILD_PATH) $(TEST_BUILD_PATH) $(K3SOLVER_BUILD_PATH)
 #	@mkdir -p $(BUILD_PATH) $(SOLVER_BUILD_PATH) $(TEST_BUILD_PATH)
 
 $(PCH_OUT): $(PCH_SRC) $(PCH_HEADERS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 $(BUILD_PATH)/%.o: %.cpp $(PCH_OUT)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+k3solver: $(K3SOLVER_OBJS)
+	$(CXX) $(CXXFLAGS) -Wall $^ -o $@ $(LDFLAGS)
 
 solver: $(MAIN_OBJS) $(SOLVER_OBJS)
 	$(CXX) $(CXXFLAGS) -Wall $^ -o $@ $(LDFLAGS)
