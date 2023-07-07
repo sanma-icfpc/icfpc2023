@@ -10,13 +10,19 @@ jobs:
     name: get-scoreboard
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Prepare
+        uses: actions/checkout@v3
       - run: |
           pip install python-dateutil
           python3 tools/api.py scoreboard
-          git config -l
           git config user.name  "Cron"
           git config user.email "github@peria.jp"
+          git config -l
+      - name: get-scoreboard
+        run: |
+          python3 tools/api.py scoreboard
+      - name: commit
+        run: |
           git add data/scoreboard
           git commit -m 'Update score board'
           git push
