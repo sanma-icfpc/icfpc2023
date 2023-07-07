@@ -14,6 +14,7 @@ jobs:
       - run: |
           pip install python-dateutil
           python3 tools/api.py scoreboard
+          git config -l
           git config user.name  "Cron"
           git config user.email "github@peria.jp"
           git add data/scoreboard
