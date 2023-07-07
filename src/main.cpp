@@ -1,4 +1,5 @@
 #include "stdafx.h"
+#include <nlohmann/json.hpp>
 
 int main(int argc, char* argv[]) {
   google::InitGoogleLogging(argv[0]);

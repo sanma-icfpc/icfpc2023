@@ -9,7 +9,7 @@ CXXFLAGS+=-MMD -MP -fopenmp
 
 # header-only libraries
 #CXXFLAGS+=-I$(LIB_PATH)/CLI11/include
-#CXXFLAGS+=-I$(LIB_PATH)/json/include
+CXXFLAGS+=-I$(LIB_PATH)/json/include
 #CXXFLAGS+=-I$(LIB_PATH)/cpp-httplib/include
 #CXXFLAGS+=-I$(LIB_PATH)/boost_1_76_0/
 

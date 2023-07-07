@@ -17,7 +17,7 @@
     -->
     <ClCompile>
       <PreprocessorDefinitions>_SILENCE_CXX20_CISO646_REMOVED_WARNING;GOOGLE_GLOG_DLL_DECL=</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\..\src;$(ProjectDir)..\..\libs\CLI11\include;$(ProjectDir)..\..\libs\glog_vsbuild;$(ProjectDir)..\..\libs\glog\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\src;$(ProjectDir)..\..\libs\CLI11\include;$(ProjectDir)..\..\libs\json\include;$(ProjectDir)..\..\libs\glog_vsbuild;$(ProjectDir)..\..\libs\glog\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(ProjectDir)..\..\libs\glog_vsbuild\$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
@@ -37,7 +37,7 @@
     -->
     <ClCompile>
       <PreprocessorDefinitions>_SILENCE_CXX20_CISO646_REMOVED_WARNING;GOOGLE_GLOG_DLL_DECL=</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\..\src;$(ProjectDir)..\..\libs\CLI11\include;$(ProjectDir)..\..\libs\glog_vsbuild;$(ProjectDir)..\..\libs\glog\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\src;$(ProjectDir)..\..\libs\CLI11\include;$(ProjectDir)..\..\libs\json\include;$(ProjectDir)..\..\libs\glog_vsbuild;$(ProjectDir)..\..\libs\glog\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>$(ProjectDir)..\..\libs\glog_vsbuild\$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
