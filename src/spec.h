@@ -50,8 +50,19 @@ struct Problem {
         }
     }
 
+    static Problem from_file(int problem_id) {
+        return from_file(format("../data/problems/problem-%d.json", problem_id));
+    }
+
+    static Problem from_file(std::string path) {
+        std::ifstream ifs(path.c_str());
+        nlohmann::json data;
+        ifs >> data;
+        return Problem(data);
+    }
+
 #ifdef HAVE_OPENCV_HIGHGUI
-    cv::Mat_<cv::Vec3b> show(int delay = 0) const {
+    cv::Mat_<cv::Vec3b> to_mat() const {
         int H = (int)room_height;
         int W = (int)room_width;
         cv::Mat_<cv::Vec3b> img(H, W, cv::Vec3b(155, 155, 155));
@@ -67,6 +78,10 @@ struct Problem {
             int x = (int)a.x;
             cv::circle(img, cv::Point(x, y), 2, cv::Scalar(0, 0, 255), cv::FILLED);
         }
+        return img;
+    }
+    cv::Mat_<cv::Vec3b> show(int delay = 0) const {
+        cv::Mat_<cv::Vec3b> img = to_mat();
         cv::imshow("img", img);
         cv::waitKey(delay);
     }
