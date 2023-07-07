@@ -74,11 +74,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     cv::utils::logging::setLogLevel(cv::utils::logging::LogLevel::LOG_LEVEL_SILENT);
 #endif
 
-    std::ifstream ifs(format("../data/problems/problem-%d.json", problem_id));
-    nlohmann::json data;
-    ifs >> data;
-
-    Problem problem(data);
+    Problem problem = Problem::from_file(problem_id);
 
     Xorshift rnd;
     //auto solution = create_trivial_solution(problem);
@@ -100,7 +96,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     DUMP(loop);
 
     if (best_score > 0) {
-        std::ofstream ofs(format("../personal/k3/solutions/problem-%d.json", problem_id));
+        std::ofstream ofs(format("../personal/k3/solutions/solution-%d.json", problem_id));
         ofs << best_solution.to_json().dump(4);
     }
 
