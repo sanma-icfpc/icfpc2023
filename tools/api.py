@@ -13,6 +13,25 @@ DATA_DIR = f"{BASE_DIR}/data"
 PROBLEMS_DIR = f"{DATA_DIR}/problems"
 SCOREBOARD_DIR = f"{DATA_DIR}/scoreboard"
 
+USAGE = """
+$ api.py <command> [other_arguments]
+
+  where
+    <command> := "problem" | "problems" | "scoreboard"
+
+  Commands:
+    problem:     $ api.py problem <problem_id>
+      Downloads JSON file for a problem <problem_id>. <problem_id> is
+      a number. <problem_id> can be a list of IDs.
+
+    problems:    $ api.py problems
+      Displays the number of available problems, and downloads all problems
+      you don't have in your local problems directory.
+
+    scoreboard:  $ api.py scoreboard
+      Downloads and saves the current scoreboard.
+"""
+
 
 def command_problem(ids):
     # problem?problem_id=[problem_id:u32]
@@ -52,13 +71,12 @@ def command_problems(options):
     number = data['number_of_problems']
     print(f"Number of problems: {number}")
 
-    if '--get' in options:
-        current = sum(os.path.isfile(os.path.join(PROBLEMS_DIR, name))
-                      for name in os.listdir(PROBLEMS_DIR))
-        if current < number:
-            print(
-                "Currently we have only {current} problems. Download unavailable problems.")
-            command_problem(list(range(1, number + 1)))
+    current = sum(os.path.isfile(os.path.join(PROBLEMS_DIR, name))
+                  for name in os.listdir(PROBLEMS_DIR))
+    if current < number:
+        print(
+            "Currently we have only {current} problems. Download unavailable problems.")
+        command_problem(list(range(1, number + 1)))
 
     return True
 
