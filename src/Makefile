@@ -50,19 +50,23 @@ MAIN_SRCS=$(SRCS) main.cpp
 MAIN_OBJS=$(MAIN_SRCS:%.cpp=$(BUILD_PATH)/%.o)
 MAIN_DEPS=$(MAIN_SRCS:%.cpp=$(BUILD_PATH)/%.d)
 
-#JUDGE_SRCS=$(SRCS) judge_main.cpp
-#JUDGE_OBJS=$(JUDGE_SRCS:%.cpp=$(BUILD_PATH)/%.o)
-#JUDGE_DEPS=$(JUDGE_SRCS:%.cpp=$(BUILD_PATH)/%.d)
-
 SOLVER_SRCS=$(wildcard solvers/*.cpp)
 SOLVER_OBJS=$(SOLVER_SRCS:%.cpp=$(BUILD_PATH)/%.o)
 SOLVER_DEPS=$(SOLVER_SRCS:%.cpp=$(BUILD_PATH)/%.d)
 SOLVER_BUILD_PATH=build/solvers
 
+# extend this if you wish to add another solver binary.
 K3SOLVER_SRCS=personal/k3/solver.cpp
 K3SOLVER_OBJS=$(K3SOLVER_SRCS:%.cpp=$(BUILD_PATH)/%.o)
 K3SOLVER_DEPS=$(K3SOLVER_SRCS:%.cpp=$(BUILD_PATH)/%.d)
 K3SOLVER_BUILD_PATH=build/personal/k3
+TARGETS+=k3solver
+
+TSSOLVER_SRCS=personal/ts/solver.cpp
+TSSOLVER_OBJS=$(TSSOLVER_SRCS:%.cpp=$(BUILD_PATH)/%.o)
+TSSOLVER_DEPS=$(TSSOLVER_SRCS:%.cpp=$(BUILD_PATH)/%.d)
+TSSOLVER_BUILD_PATH=build/personal/ts
+TARGETS+=tssolver
 
 GTEST_SRCS=$(GTEST_DIR)/src/gtest-all.cc $(GTEST_DIR)/src/gtest_main.cc
 TEST_BUILD_PATH=build/tests
@@ -73,7 +77,7 @@ TEST_OBJS=$(TEST_SRCS:%.cpp=$(BUILD_PATH)/%.o)
 TEST_DEPS=$(TEST_SRCS:%.cpp=$(BUILD_PATH)/%.d)
 $(TEST_OBJS): CXXFLAGS+=$(TEST_CXXFLAGS)
 
-TARGETS=k3solver test # judge test_mpir
+TARGETS+=solver test
 
 .PHONY: all
 all: dirs $(TARGETS)
@@ -88,8 +92,7 @@ clean:
 
 .PHONY: dirs
 dirs:
-	@mkdir -p $(BUILD_PATH) $(TEST_BUILD_PATH) $(K3SOLVER_BUILD_PATH)
-#	@mkdir -p $(BUILD_PATH) $(SOLVER_BUILD_PATH) $(TEST_BUILD_PATH)
+	@mkdir -p $(BUILD_PATH) $(TEST_BUILD_PATH) $(SOLVER_BUILD_PATH) $(K3SOLVER_BUILD_PATH) $(TSSOLVER_BUILD_PATH)
 
 $(PCH_OUT): $(PCH_SRC) $(PCH_HEADERS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
@@ -99,16 +102,13 @@ $(BUILD_PATH)/%.o: %.cpp $(PCH_OUT)
 k3solver: $(K3SOLVER_OBJS)
 	$(CXX) $(CXXFLAGS) -Wall $^ -o $@ $(LDFLAGS)
 
-solver: $(MAIN_OBJS) $(SOLVER_OBJS)
+tssolver: $(TSSOLVER_OBJS)
 	$(CXX) $(CXXFLAGS) -Wall $^ -o $@ $(LDFLAGS)
 
-#judge: $(JUDGE_OBJS) $(SOLVER_OBJS)
-#	$(CXX) $(CXXFLAGS) -Wall $^ -o $@ $(LDFLAGS)
-
-#test_mpir: $(TEST_MPIR_OBJS)
-#	$(CXX) $(CXXFLAGS) -Wall $^ -o $@ $(LDFLAGS)
+solver: $(MAIN_OBJS) $(SOLVER_OBJS)
+	$(CXX) $(CXXFLAGS) -Wall $^ -o $@ $(LDFLAGS)
 
 test: $(GTEST_SRCS) $(TEST_OBJS) $(OBJS)
 	$(CXX) $(TEST_CXXFLAGS) $^ -o $@ $(TEST_LDFLAGS)
 
--include $(DEPS) $(MAIN_DEPS) $(JUDGE_DEPS) $(SOLVER_DEPS) $(K3SOLVER_DEPS) $(TEST_DEPS)
+-include $(DEPS) $(MAIN_DEPS) $(JUDGE_DEPS) $(SOLVER_DEPS) $(K3SOLVER_DEPS) $(TSSOLVER_DEPS) $(TEST_DEPS)
