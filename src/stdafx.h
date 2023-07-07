@@ -2,6 +2,7 @@
 #ifndef __ICFPC2023_STDAFX_H__
 #define __ICFPC2023_STDAFX_H__
 
+#include <iostream>
 #include <fstream>
 #include <random>
 #include <thread>
