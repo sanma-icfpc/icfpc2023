@@ -1,10 +1,8 @@
 #!/bin/sh
 
-./build.sh || exit 1
-# ICFPC2022時点でのメモ
-#   HACK: VS2022 と MSYS2 で、フォルダの位置を合わせる。
-#   HACK: C:/home/nodchip/icfpc2022/src/test.exe: error while loading shared libraries: ?: cannot open shared object file: No such file or directory
-#         が解消できないので、テストしない。 Windows 側のテストで代用する。
+#./build.sh || exit 1
+# HACK: VS2022 と WSL/MSYS2 で、フォルダの位置を合わせる。
 pushd vs/test
-../../src/test || exit 1
+rm -f test_result_linux.xml
+../../src/test --gtest_output=xml:test_result_linux.xml || exit 1
 popd
