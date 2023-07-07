@@ -12,12 +12,12 @@ jobs:
     steps:
       - name: Prepare
         uses: actions/checkout@v3
-      - run: |
-          pip install python-dateutil
-          python3 tools/api.py scoreboard
+      - name: Hand Prepare
+        run: |
           git config user.name  "Cron"
           git config user.email "github@peria.jp"
           git config -l
+          pip install python-dateutil
       - name: get-scoreboard
         run: |
           python3 tools/api.py scoreboard
