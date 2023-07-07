@@ -9,10 +9,13 @@
 #include <regex>
 #include <nlohmann/json.hpp>
 #ifdef USE_OPENCV
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-enum-enum-conversion"
 #include <opencv2/core.hpp>
 #include <opencv2/core/utils/logger.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
+#pragma GCC diagnostic pop
 #endif
 #ifdef _MSC_VER
 #include <conio.h>
