@@ -1,0 +1,17 @@
+name: track-scoreboard
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+
+jobs:
+  build:
+    name: track scoreboard
+    runs-on: ubuntu-latest
+    steps:
+      - run: python3 tools/api.py scoreboard
+             git config user.name  "Cron"
+             git config user.email "github@peria.jp"
+             git add data/scoreboard
+             git commit -m 'Update score board'
+             git push
