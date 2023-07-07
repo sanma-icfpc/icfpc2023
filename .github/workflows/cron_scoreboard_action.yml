@@ -12,8 +12,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - run: |
-          pwd
-          ls -a
+          pip install python-dateutil
           python3 tools/api.py scoreboard
           git config user.name  "Cron"
           git config user.email "github@peria.jp"
