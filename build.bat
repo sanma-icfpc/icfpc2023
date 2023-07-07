@@ -2,5 +2,5 @@ IF "%VCINSTALLDIR%" == "" CALL "C:\Program Files\Microsoft Visual Studio\2022\Co
 @ECHO ON
 CALL libs\build.bat || EXIT /B 1
 REM CALL libs\build_local.bat || EXIT /B 1
-msbuild vs\ICFPC2022.sln -t:restore -p:RestorePackagesConfig=true -p:configuration=Release -p:platform=x64 || EXIT /B 1
-devenv.com vs\ICFPC2022.sln /build "Release|x64" || EXIT /B 1
+msbuild vs\ICFPC2023.sln -t:restore -p:RestorePackagesConfig=true -p:configuration=Release -p:platform=x64 || EXIT /B 1
+devenv.com vs\ICFPC2023.sln /build "Release|x64" || EXIT /B 1
