@@ -229,8 +229,8 @@ Solution create_trivial_solution(const Problem& problem) {
 
     double width = problem.stage_w;
     double height = problem.stage_h;
-    int ncols = (int)floor(width / 20.0);
-    int nrows = (int)floor(height / 20.0);
+    int ncols = (int)floor((width - 10.0) / 10.0);
+    int nrows = (int)floor((height - 10.0) / 10.0);
     DUMP(ncols, nrows);
 
     Solution solution;
@@ -314,8 +314,8 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     auto solution = create_trivial_solution(problem);
 
     DUMP(compute_score(problem, solution));
-    // local:  -122101171
-    // remote: -122101168
+    // local:  -154693724
+    // remote: -154693721
 
     std::ofstream ofs("../../out/problem-10.json");
     ofs << solution.to_json().dump(4);
