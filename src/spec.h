@@ -1,5 +1,7 @@
 #pragma once
 
+static constexpr int k_musician_radius = 5;
+
 struct Attendee {
 
     double x;
@@ -84,6 +86,7 @@ struct Problem {
         cv::Mat_<cv::Vec3b> img = to_mat();
         cv::imshow("img", img);
         cv::waitKey(delay);
+        return img;
     }
 #endif
 
@@ -110,6 +113,18 @@ struct Solution {
         return oss.str();
     }
 
+    static Solution from_file(std::string path) {
+        std::ifstream ifs(path.c_str());
+        nlohmann::json data;
+        ifs >> data;
+
+        Solution solution;
+        for (const auto& placement : data["placements"]) {
+            solution.placements.push_back({placement["x"], placement["y"]});
+        }
+        return solution;
+    }
+
     nlohmann::json to_json() const {
         nlohmann::json data;
         data["placements"] = {};
@@ -118,5 +133,16 @@ struct Solution {
         }
         return data;
     }
+
+#ifdef HAVE_OPENCV_HIGHGUI
+    cv::Mat_<cv::Vec3b> to_mat(const Problem& problem) const {
+        cv::Mat img = problem.to_mat();
+        for (const auto& [x, y] : placements) {
+            cv::circle(img, cv::Point(x, y), 2, cv::Scalar(0, 255, 0), cv::FILLED);
+            cv::circle(img, cv::Point(x, y), k_musician_radius, cv::Scalar(0, 255, 0), 1);
+        }
+        return img;
+    }
+#endif
 
 };
