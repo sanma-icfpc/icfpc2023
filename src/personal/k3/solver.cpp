@@ -29,7 +29,8 @@ std::optional<Solution> create_random_solution(const Problem& problem, Xorshift&
 
     Timer timer;
 
-    constexpr double eps = 1e-8;
+    //constexpr double eps = 1e-8;
+    constexpr double eps = 0;
     constexpr double margin = 10.0 + eps;
     double bb_left = problem.stage_x + margin;
     double bb_right = problem.stage_x + problem.stage_w - margin;
@@ -37,7 +38,7 @@ std::optional<Solution> create_random_solution(const Problem& problem, Xorshift&
     double bb_top = problem.stage_y + problem.stage_h - margin;
 
     std::vector<Placement> placements;
-    
+
     while (timer.elapsed_ms() < timelimit && placements.size() < problem.musicians.size()) {
         double x = bb_left + (bb_right - bb_left) * rnd.next_double();
         double y = bb_bottom + (bb_top - bb_bottom) * rnd.next_double();
@@ -60,44 +61,81 @@ std::optional<Solution> create_random_solution(const Problem& problem, Xorshift&
 
 }
 
-int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
-
-    int problem_id = 1;
-    if (argc == 2) {
-        problem_id = std::stoi(argv[1]);
-    }
-    DUMP(problem_id);
+void solve(int problem_id) {
 
     Timer timer;
 
-#ifdef HAVE_OPENCV_HIGHGUI
-    cv::utils::logging::setLogLevel(cv::utils::logging::LogLevel::LOG_LEVEL_SILENT);
-#endif
+    std::ifstream ifs(format("../data/problems/problem-%d.json", problem_id));
+    nlohmann::json data;
+    ifs >> data;
 
-    Problem problem = Problem::from_file(problem_id);
+    Problem problem(data);
+
+#ifdef _PPL_H
+    constexpr int concurrency_coeff = 1;
+#else
+    constexpr int concurrency_coeff = 10;
+#endif
+    constexpr int timelimit_phase1 = 10000 * concurrency_coeff;
+    constexpr int timelimit_phase2 = 60000 * concurrency_coeff;
+
+    DUMP(problem_id, timelimit_phase1, timelimit_phase2, concurrency_coeff);
 
     Xorshift rnd;
     //auto solution = create_trivial_solution(problem);
     Solution best_solution;
     double best_score = -1e20;
     int loop = 0;
-    while (timer.elapsed_ms() < 10000) {
+
+    while (timer.elapsed_ms() < timelimit_phase1 * concurrency_coeff) {
         loop++;
         auto solution_opt = create_random_solution(problem, rnd);
         if (solution_opt) {
             auto solution = solution_opt.value();
             double score = compute_score(problem, solution);
             if (chmax(best_score, score)) {
-                DUMP(loop, best_score);
+                DUMP(loop, best_score, timer.elapsed_ms());
                 best_solution = solution;
             }
         }
     }
     DUMP(loop);
 
+    while (timer.elapsed_ms() < timelimit_phase2 * concurrency_coeff) {
+        auto solution = best_solution;
+        int num_musicians = solution.placements.size();
+        int i, j;
+        do {
+            i = rnd.next_int(num_musicians);
+            j = rnd.next_int(num_musicians);
+        } while (i == j);
+        if (problem.musicians[i] == problem.musicians[j]) continue;
+        loop++;
+        std::swap(solution.placements[i].x, solution.placements[j].x);
+        std::swap(solution.placements[i].y, solution.placements[j].y);
+        double score = compute_score(problem, solution);
+        if (chmax(best_score, score)) {
+            DUMP(loop, best_score, timer.elapsed_ms());
+            best_solution = solution;
+        }
+    }
+    DUMP(loop);
+
     if (best_score > 0) {
-        std::ofstream ofs(format("../personal/k3/solutions/solution-%d.json", problem_id));
+        std::ofstream ofs(format("../data/solutions/k3_v02_k3_v02_random_swap_after_creation/solution-%d.json", problem_id));
         ofs << best_solution.to_json().dump(4);
+    }
+}
+
+
+int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
+
+#ifdef HAVE_OPENCV_HIGHGUI
+    cv::utils::logging::setLogLevel(cv::utils::logging::LogLevel::LOG_LEVEL_SILENT);
+#endif
+
+    for (int problem_id = 4; problem_id <= 45; problem_id++) {
+        solve(problem_id);
     }
 
     return 0;

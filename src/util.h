@@ -31,7 +31,39 @@ inline std::optional<int> guess_problem_id(std::string some_file_path) {
     return std::nullopt;
 }
 
-inline int64_t compute_score(const Problem& problem, const Solution& solution) {
+#ifdef _PPL_H
+int64_t compute_score(const Problem& problem, const Solution& solution) {
+
+    const auto& musicians = problem.musicians;
+    const auto& attendees = problem.attendees;
+    const auto& placements = solution.placements;
+
+    concurrency::combinable<int64_t> score;
+    concurrency::parallel_for(0, (int)musicians.size(), [&](int k) {
+        int t = problem.musicians[k];
+        double mx = placements[k].x, my = placements[k].y;
+        for (int i = 0; i < attendees.size(); i++) {
+            double ax = attendees[i].x, ay = attendees[i].y;
+            bool blocked = false;
+            for (int kk = 0; kk < musicians.size(); kk++) {
+                double cx = placements[kk].x, cy = placements[kk].y;
+                if (is_intersect(cx, cy, 5.0, mx, my, ax, ay)) {
+                    blocked = true;
+                    break;
+                }
+            }
+            if (blocked) continue;
+            double d2 = (ax - mx) * (ax - mx) + (ay - my) * (ay - my);
+            double taste = attendees[i].tastes[t];
+            score.local() += (int64_t)ceil(1e6 * taste / d2);
+        }
+        });
+
+    return score.combine(std::plus<int64_t>());
+
+}
+#else
+int64_t compute_score(const Problem& problem, const Solution& solution) {
 
     const auto& musicians = problem.musicians;
     const auto& attendees = problem.attendees;
@@ -62,3 +94,4 @@ inline int64_t compute_score(const Problem& problem, const Solution& solution) {
     return score;
 
 }
+#endif
