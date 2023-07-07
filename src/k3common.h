@@ -8,13 +8,13 @@
 #include <optional>
 #include <regex>
 #include <nlohmann/json.hpp>
-#ifdef _MSC_VER
 #ifdef USE_OPENCV
 #include <opencv2/core.hpp>
 #include <opencv2/core/utils/logger.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
 #endif
+#ifdef _MSC_VER
 #include <conio.h>
 #include <ppl.h>
 #include <filesystem>
