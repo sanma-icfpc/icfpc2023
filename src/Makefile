@@ -18,8 +18,8 @@ CXXFLAGS+=-I$(LIB_PATH)/json/include
 #LDFLAGS+=-lssl -lcrypto
 
 # pre-built libraries
-#CXXFLAGS+=-I$(LIB_PATH)/fmt/include
-#LDFLAGS+=-L$(LIB_PATH)/fmt/build -lfmt
+CXXFLAGS+=-I$(LIB_PATH)/fmt/include
+LDFLAGS+=-L$(LIB_PATH)/fmt/build -lfmt
 
 CXXFLAGS+=-I$(LIB_PATH)/glog/src -I$(LIB_PATH)/glog_build
 LDFLAGS+=-L$(LIB_PATH)/glog_build -Wl,-rpath $(LIB_PATH)/glog_build -lglog
