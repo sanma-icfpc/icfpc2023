@@ -17,7 +17,7 @@ def command_problem(ids):
     print(BASE_DIR)
 
     for id in ids:
-        filepath = f"{DATA_DIR}/{id}.json"
+        filepath = f"{DATA_DIR}/problem-{id}.json"
         if os.path.isfile(filepath):
             continue
 
