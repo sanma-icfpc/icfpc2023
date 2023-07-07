@@ -10,10 +10,10 @@ jobs:
     name: get-scoreboard
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v3
       - run: |
           pwd
           ls -a
-          git pull
           python3 tools/api.py scoreboard
           git config user.name  "Cron"
           git config user.email "github@peria.jp"
