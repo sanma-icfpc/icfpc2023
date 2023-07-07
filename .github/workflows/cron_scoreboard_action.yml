@@ -26,3 +26,5 @@ jobs:
           git add data/scoreboard
           git commit -m 'Update score board'
           git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
