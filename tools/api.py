@@ -19,7 +19,6 @@ def command_problem(ids):
     if not isinstance(ids, list):
         ids = [ids]
     ids = [int(x) for x in ids]
-    print(BASE_DIR)
 
     for id in ids:
         filepath = f"{PROBLEMS_DIR}/problem-{id}.json"
@@ -30,8 +29,11 @@ def command_problem(ids):
         print(f'Downloading {url}', file=sys.stderr)
         response = requests.get(url)
         data = response.text
+        data = json.loads(data)
+        data = data['Success']
         data = data.replace("\\n", '\n')
         data = data.replace('\\"', '"')
+        # print(data)
         with open(filepath, 'w') as f:
             f.write(data)
 
