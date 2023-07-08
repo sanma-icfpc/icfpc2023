@@ -106,13 +106,18 @@ Solution create_trivial_solution(const Problem& problem) {
 }
 
 
+
 void solve(int problem_id) {
 
     Timer timer;
 
-    std::ifstream ifs(format("../data/problems/problem-%d.json", problem_id));
+    std::string in_file = format("../data/problems/problem-%d.json", problem_id);
+    std::string out_file_format = "../data/solutions/k3_v03_climbing/solution-%d_%lld.json";
     nlohmann::json data;
-    ifs >> data;
+    {
+        std::ifstream ifs(in_file);
+        ifs >> data;
+    }
 
     Problem problem(data);
     DUMP(problem.musicians.size(), problem.attendees.size());
@@ -123,7 +128,7 @@ void solve(int problem_id) {
     constexpr int concurrency_coeff = 10;
 #endif
     constexpr int timelimit_phase1 = 10000 * concurrency_coeff;
-    constexpr int timelimit_phase2 = 60000 * concurrency_coeff;
+    constexpr int timelimit_phase2 = 10000000 * concurrency_coeff;
 
     DUMP(problem_id, timelimit_phase1, timelimit_phase2, concurrency_coeff);
 
@@ -132,6 +137,16 @@ void solve(int problem_id) {
     Solution best_solution;
     double best_score = -1e20;
     int loop = 0;
+
+    auto save = [&](const Solution& sol, int problem_id, int64_t score) {
+        std::string out_file = format(out_file_format, problem_id, score);
+        std::ofstream ofs(out_file);
+        ofs << sol.to_json().dump(4);
+        DUMP(loop, best_score, timer.elapsed_ms());
+    };
+
+    double save_interval = 5000.0;
+    double next_save_time = save_interval;
 
     while (timer.elapsed_ms() < timelimit_phase1 * concurrency_coeff) {
         loop++;
@@ -144,33 +159,69 @@ void solve(int problem_id) {
                 best_solution = solution;
             }
         }
+        if (next_save_time < timer.elapsed_ms()) {
+            save(best_solution, problem_id, best_score);
+            next_save_time += save_interval;
+        }
     }
     DUMP(loop);
 
     while (timer.elapsed_ms() < timelimit_phase2 * concurrency_coeff) {
+
         auto solution = best_solution;
         int num_musicians = solution.placements.size();
-        int i, j;
-        do {
-            i = rnd.next_int(num_musicians);
-            j = rnd.next_int(num_musicians);
-        } while (i == j);
-        if (problem.musicians[i] == problem.musicians[j]) continue;
-        loop++;
-        std::swap(solution.placements[i].x, solution.placements[j].x);
-        std::swap(solution.placements[i].y, solution.placements[j].y);
-        double score = compute_score_fast(problem, solution);
-        if (chmax(best_score, score)) {
-            DUMP(loop, best_score, timer.elapsed_ms());
-            best_solution = solution;
+
+        if (!rnd.next_int(2)) {
+            int i, j;
+            do {
+                i = rnd.next_int(num_musicians);
+                j = rnd.next_int(num_musicians);
+            } while (i == j);
+            if (problem.musicians[i] == problem.musicians[j]) continue;
+            loop++;
+            std::swap(solution.placements[i].x, solution.placements[j].x);
+            std::swap(solution.placements[i].y, solution.placements[j].y);
+            double score = compute_score_fast(problem, solution);
+            if (chmax(best_score, score)) {
+                best_solution = solution;
+            }
+        }
+        else {
+            int i = rnd.next_int(num_musicians);
+            Placement prev_placement = solution.placements[i];
+            Placement placement {
+                problem.stage_x + k_musician_spacing_radius + rnd.next_double() * (problem.stage_w - k_musician_spacing_radius * 2),
+                problem.stage_y + k_musician_spacing_radius + rnd.next_double() * (problem.stage_h - k_musician_spacing_radius * 2)
+                };
+            if (!is_musician_on_stage(problem, placement)) continue;
+            bool conflict = false;
+            for (int kk = 0; kk < solution.placements.size(); ++kk) {
+                if (i != kk) {
+                    if (are_musicians_too_close(solution.placements[kk], placement)) {
+                        conflict = true;
+                        break;
+                    }
+                }
+            }
+            if (conflict) continue;
+            loop++;
+            solution.placements[i] = placement;
+            double score = compute_score_fast(problem, solution);
+            if (chmax(best_score, score)) {
+                best_solution = solution;
+            }
+            else {
+                solution.placements[i] = prev_placement;
+            }
+        }
+
+        if (next_save_time < timer.elapsed_ms()) {
+            save(best_solution, problem_id, best_score);
+            next_save_time += save_interval;
         }
     }
     DUMP(loop, best_score, compute_score(problem, best_solution));
 
-    if (best_score > 0) {
-        std::ofstream ofs(format("../data/solutions/k3_v02_k3_v02_random_swap_after_creation/solution-%d.json", problem_id));
-        ofs << best_solution.to_json().dump(4);
-    }
 }
 
 
