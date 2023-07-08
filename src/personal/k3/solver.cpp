@@ -112,6 +112,7 @@ void solve(int problem_id) {
     Timer timer;
 
     std::string in_file = format("../data/problems/problem-%d.json", problem_id);
+    //std::string sol_file = format("/home/komori3/dev/icfpc2023/data/solutions/k3_v03_climbing/solution-8_1447259902.json");
     std::string out_file_format = "../data/solutions/k3_v03_climbing/solution-%d_%lld.json";
     nlohmann::json data;
     {
@@ -133,9 +134,11 @@ void solve(int problem_id) {
     DUMP(problem_id, timelimit_phase1, timelimit_phase2, concurrency_coeff);
 
     Xorshift rnd;
-    //auto solution = create_trivial_solution(problem);
+    auto solution = create_trivial_solution(problem);
     Solution best_solution;
     double best_score = -1e20;
+    //auto best_solution = Solution::from_file(sol_file);
+    //double best_score = compute_score_fast(problem, best_solution);
     int loop = 0;
 
     auto save = [&](const Solution& sol, int problem_id, int64_t score) {
