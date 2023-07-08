@@ -91,8 +91,9 @@ struct Changeset {
 
         for (int retry = 0; retry < 100; ++retry) {
             Placement placement {
-                problem.stage_x + rnd.next_double() * problem.stage_w,
-                problem.stage_y + rnd.next_double() * problem.stage_h};
+                problem.stage_x + k_musician_spacing_radius + rnd.next_double() * (problem.stage_w - k_musician_spacing_radius * 2),
+                problem.stage_y + k_musician_spacing_radius + rnd.next_double() * (problem.stage_h - k_musician_spacing_radius * 2)};
+            if (!is_musician_on_stage(problem, placement)) continue;
             bool conflict = false;
             for (int kk = 0; kk < solution.placements.size(); ++kk) {
                 if (i != kk) {
