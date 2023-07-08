@@ -1,6 +1,7 @@
 #pragma once
 #include <stdafx.h>
 #include <filesystem>
+#include <regex>
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <sstream>
@@ -33,6 +34,37 @@ struct Pillar {
   double r;
 };
 
+struct Extension {
+    bool consider_pillars = false; // Full Division, Extension 1: Obstacles in the Room
+    bool consider_harmony = false; // Full Division, Extension 2: Playing Together
+    auto operator<=>(const Extension&) const = default;
+    static Extension from_problem_id(int problem_id) {
+        if (problem_id <= 55) {
+            return lightning();
+        }
+        return full();
+    }
+    static constexpr Extension lightning() { return Extension {false, false}; }
+    static constexpr Extension full() { return Extension {true, true}; }
+};
+
+inline std::optional<int> guess_problem_id(std::string some_file_path) {
+    std::regex pattern(".*-(\\d+)");
+    std::smatch matches;
+
+    if (std::regex_search(some_file_path, matches, pattern)) {
+        std::string numberString = matches[1].str();
+        try {
+            return stoi(numberString);
+        } catch (const std::invalid_argument& e) {
+            LOG(ERROR) << "Invalid argument: " << e.what();
+        } catch (const std::out_of_range& e) {
+            LOG(ERROR) << "Out of range: " << e.what();
+        }
+    }
+    return std::nullopt;
+}
+
 struct Problem {
   double room_width;
   double room_height;
@@ -43,6 +75,7 @@ struct Problem {
   std::vector<int> musicians;
   std::vector<Attendee> attendees;
   std::vector<Pillar> pillars;
+  Extension extension;
 
   Problem(const nlohmann::json& data) {
     room_width = data["room_width"];
@@ -78,14 +111,21 @@ struct Problem {
     // Windows: cwd = /vs
     std::filesystem::path json_path("../data/problems/problem-" + std::to_string(problem_id) + ".json");
     LOG_ASSERT(std::filesystem::is_regular_file(json_path));
-    return from_file(json_path.string());
+    return Problem::from_file(json_path.string());
   }
 
   static Problem from_file(std::string path) {
     std::ifstream ifs(path.c_str());
     nlohmann::json data;
     ifs >> data;
-    return Problem(data);
+    Problem problem(data);
+    if (auto problem_id_opt = guess_problem_id(path)) {
+      problem.extension = Extension::from_problem_id(*problem_id_opt);
+    } else {
+      LOG(WARNING) << "Failed to guess problem ID! extension may be wrong. assuming full division..";
+      problem.extension = Extension::full();
+    }
+    return problem;
   }
 
 #ifdef HAVE_OPENCV_HIGHGUI

@@ -168,36 +168,6 @@ inline std::optional<Solution> create_random_solution(const Problem& problem, Xo
 
 }
 
-inline std::optional<int> guess_problem_id(std::string some_file_path) {
-    std::regex pattern(".*-(\\d+)");
-    std::smatch matches;
-
-    if (std::regex_search(some_file_path, matches, pattern)) {
-        std::string numberString = matches[1].str();
-        try {
-            return stoi(numberString);
-        } catch (const std::invalid_argument& e) {
-            LOG(ERROR) << "Invalid argument: " << e.what();
-        } catch (const std::out_of_range& e) {
-            LOG(ERROR) << "Out of range: " << e.what();
-        }
-    }
-    return std::nullopt;
-}
-
-struct Extension {
-    const bool consider_pillars = false; // Full Division, Extension 1: Obstacles in the Room
-    const bool consider_harmony = false; // Full Division, Extension 2: Playing Together
-    static Extension from_problem_id(int problem_id) {
-        if (problem_id <= 55) {
-            return Extension {false, false};
-        }
-        return Extension {true, true};
-    }
-    static Extension lightning() { return Extension {false, false}; }
-    static Extension full() { return Extension {true, true}; }
-};
-
 // still has some bugs..
 struct CachedComputeScore {
 public:
@@ -352,12 +322,13 @@ inline bool is_valid_solution(const Problem& problem, const Solution& solution, 
     return valid;
 }
 
-inline int64_t compute_score(const Problem& problem, const Solution& solution, const Extension& extension = Extension::lightning()) {
+inline int64_t compute_score(const Problem& problem, const Solution& solution) {
 
     const auto& musicians = problem.musicians;
     const auto& attendees = problem.attendees;
     const auto& pillars = problem.pillars;
     const auto& placements = solution.placements;
+    const auto& extension = problem.extension;
 
     std::vector<double> harmony;
     if (extension.consider_harmony) {

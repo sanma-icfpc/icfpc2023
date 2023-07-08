@@ -128,6 +128,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
         t_max = std::atof(argv[3]);
     }
     int problem_id = *guess_problem_id(solution_path);
+    auto extension = Extension::from_problem_id(problem_id);
     DUMP(problem_id);
 
     Timer timer;

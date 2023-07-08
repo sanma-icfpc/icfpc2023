@@ -27,12 +27,18 @@ TEST(TestUtil, CachedComputeScore_inverse_operation_cancels_out_score_gain) {
   EXPECT_EQ(gain_forward + gain_backward, 0);
 }
 
+TEST(TestUtil, guess_Extension) {
+  EXPECT_EQ(Problem::from_file(42).extension, Extension::lightning());
+  EXPECT_EQ(Problem::from_file("../data/problems/problem-42.json").extension, Extension::lightning());
+  EXPECT_EQ(Problem::from_file(56).extension, Extension::full());
+  EXPECT_EQ(Problem::from_file("../data/problems/problem-56.json").extension, Extension::full());
+}
+
 TEST(TestUtil, regression_test_for_compute_score_functions_without_pillars) {
   Problem problem = Problem::from_file(42);
   Solution solution = Solution::from_file("../data/solutions/k3_v01_random_creation/solution-42.json");
 
-  Extension extension { .consider_pillars = false, .consider_harmony = false };
-  auto score_naive = compute_score(problem, solution, extension);
+  auto score_naive = compute_score(problem, solution);
   auto score_fast = compute_score_fast(problem, solution);
   auto score_cached = CachedComputeScore(problem).full_compute(solution);
   LOG(INFO) << "score_naive: " << score_naive;
@@ -48,12 +54,15 @@ TEST(TestUtil, minimal_test_to_check_effect_of_extensions_in_compute_score_funct
   Problem problem = Problem::from_file(56);
   Solution solution = *create_random_solution(problem, rnd);
 
-  Extension extension_lightning { .consider_pillars = false, .consider_harmony = false };
-  Extension extension_pillars { .consider_pillars = true, .consider_harmony = false };
-  Extension extension_harmony { .consider_pillars = false, .consider_harmony = true };
-  auto score_naive_lightning = compute_score(problem, solution, extension_lightning);
-  auto score_naive_pillars = compute_score(problem, solution, extension_pillars);
-  auto score_naive_harmony = compute_score(problem, solution, extension_harmony);
+  const Extension extension_pillars { .consider_pillars = true, .consider_harmony = false };
+  const Extension extension_harmony { .consider_pillars = false, .consider_harmony = true };
+
+  problem.extension = Extension::lightning();
+  auto score_naive_lightning = compute_score(problem, solution);
+  problem.extension = extension_pillars;
+  auto score_naive_pillars = compute_score(problem, solution);
+  problem.extension = extension_harmony;
+  auto score_naive_harmony = compute_score(problem, solution);
   LOG(INFO) << "score_naive(lightning): " << score_naive_lightning;
   LOG(INFO) << "score_naive(pillars): " << score_naive_pillars;
   LOG(INFO) << "score_naive(harmony): " << score_naive_harmony;
@@ -65,10 +74,9 @@ TEST(TestUtil, test_compute_score_fast) {
   Problem problem = Problem::from_file(42);
   Xorshift rnd(42);
 
-  Extension extension { .consider_pillars = false, .consider_harmony = false };
   for (int trial = 0; trial < 10; trial++) {
     Solution solution = *create_random_solution(problem, rnd);
-    auto score_naive = compute_score(problem, solution, extension);
+    auto score_naive = compute_score(problem, solution);
     auto score_fast = compute_score_fast(problem, solution);
     LOG(INFO) << "score_naive: " << score_naive;
     LOG(INFO) << "score_fast : " << score_fast;
