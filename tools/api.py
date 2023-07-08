@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import time
+import re
 import os
 import sys
 import json
@@ -12,6 +12,9 @@ BASE_DIR = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
 DATA_DIR = f"{BASE_DIR}/data"
 PROBLEMS_DIR = f"{DATA_DIR}/problems"
 SCOREBOARD_DIR = f"{DATA_DIR}/scoreboard"
+
+# Do not share the token with others during the contest.
+TOKEN = 'eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9.eyJ1aWQiOiI2NGEzNjZmMDhjNjg1MzEzZDFjNjBkOGYiLCJpYXQiOjE2ODg4MDA0MjYsImV4cCI6MTY4OTgwMDQyNn0.ppnYGzlvv6GSsDNQUuvmVHdjoaCd46jXt860E0OqdUs'
 
 USAGE = """
 $ api.py <command> [other_arguments]
@@ -30,6 +33,11 @@ $ api.py <command> [other_arguments]
 
     scoreboard:  $ api.py scoreboard
       Downloads and saves the current scoreboard.
+
+    submit:      $ api.py submit <json_file | directory>
+      Submits solution(s) to the official server. A name of JSON file
+      should be either of "problem-XX.json" or "problem-XX_yyyy.json"
+      where XX represents its problem ID.
 """
 
 
@@ -116,6 +124,45 @@ def command_scoreboard(_options):
     return True
 
 
+def command_submit(path):
+    filepaths = path_to_filepaths(path)
+
+    for filepath in filepaths:
+        filename = os.path.basename(filepath)
+        m = re.search('[^\\d]-(\\d+)([-_\\d]*)\\.json', filename)
+        if not m:
+            print(f"Can't parse filename: {filename}. {m}")
+            continue
+        id = int(m[1])
+        if id < 1 or id > 999:
+            print(f'Invalid problem ID ({id}) for {filename}')
+            continue
+        data = {"problem_id": id}
+        with open(filepath, 'r') as f:
+            content = json.load(f)
+            data["contents"] = json.dumps(content)
+        data = json.dumps(data)
+
+        # Submit with a POST method
+        url = f"https://{URL_DOMAIN}/submission"
+        headers = {'Content-Type': 'application/json',
+                   'Authorization': f'Bearer {TOKEN}'}
+        response = requests.post(url=url, headers=headers, data=data)
+        print(f"Submit {filename} for {id}: {response.text}", file=sys.stderr)
+    return True
+
+
+def path_to_filepaths(input_path):
+    paths = [input_path] if isinstance(input_path, str) else input_path
+    for path in paths:
+        if os.path.isfile(path):
+            yield path
+        else:
+            names = os.listdir(path)
+            for name in names:
+                yield os.path.join(path, name)
+
+
 def main():
     subcommand = "" if len(sys.argv) < 2 else sys.argv[1]
     if subcommand == "problem":
@@ -126,6 +173,9 @@ def main():
             return
     elif subcommand == "scoreboard":
         if command_scoreboard(sys.argv[2:]):
+            return
+    elif subcommand == "submit":
+        if command_submit(sys.argv[2:]):
             return
 
     print("Usage: " + sys.argv[0] + " subcommand", file=sys.stderr)
