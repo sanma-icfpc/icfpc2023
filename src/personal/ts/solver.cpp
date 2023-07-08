@@ -117,11 +117,15 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
 
     std::string solution_path;
     std::string method = "SA";
+    double t_max = 10000.0;
     if (argc >= 2) {
         solution_path = argv[1];
     }
     if (argc >= 3) {
         method = argv[2];
+    }
+    if (argc >= 4) {
+        t_max = std::atof(argv[3]);
     }
     int problem_id = *guess_problem_id(solution_path);
     DUMP(problem_id);
@@ -144,9 +148,10 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     cache.full_compute(best_solution);
     int64_t best_score = input_score;
 
+
     if (method == "HILLCLIMB") {
         int loop = 0;
-        while (timer.elapsed_ms() < 10000) {
+        while (timer.elapsed_ms() < t_max) {
             loop++;
             auto changeset = Changeset::sample_random_mutation(problem, rnd, best_solution);
             cache.change_musician(changeset.i, changeset.i_after);
@@ -168,7 +173,6 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
         double T_start = 1e5;
         double T_stop = 1e3;
         double t = 0.0;
-        double t_max = 10000.0;
         Solution current_solution = best_solution;
         int accept = 0, reject = 0;
         while ((t = timer.elapsed_ms()) < t_max) {
@@ -211,7 +215,6 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     if (method == "ILS") {
         int loop = 0;
         double t = 0.0;
-        double t_max = 10000.0;
         Solution current_solution = best_solution;
         int accept = 0, reject = 0;
         while ((t = timer.elapsed_ms()) < t_max) {
