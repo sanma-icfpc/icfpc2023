@@ -40,6 +40,9 @@ int main(int argc, char* argv[]) {
   sub_solution_to_png->add_option("solution_file", solution_file, "solution file path (JSON)");
   sub_solution_to_png->add_option("output_file", output_file, "output file path (PNG)");
 
+  auto sub_eval = app.add_subcommand("eval");
+  sub_eval->add_option("solution_file", solution_file, "solution file path (JSON)");
+
   CLI11_PARSE(app, argc, argv);
 
 #ifndef HAVE_OPENCV_HIGHGUI
@@ -63,6 +66,14 @@ int main(int argc, char* argv[]) {
   }
 #endif
 
+  if (sub_eval->parsed()) {
+    if (auto problem_id = guess_problem_id(solution_file)) {
+      Problem problem = Problem::from_file(*problem_id);
+      Solution solution = Solution::from_file(solution_file);
+      int64_t score = compute_score(problem, solution);
+      std::cout << format("score = %I64d (%s)", score, int_to_delimited_string(score).c_str()) << std::endl;
+    }
+  }
 
   return 0;
 }

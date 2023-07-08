@@ -4,6 +4,7 @@
 #elif _OPENMP
 #include <omp.h>
 #endif
+#include <type_traits>
 #include <iostream>
 #include <climits>
 #include <regex>
@@ -66,7 +67,23 @@ static std::ostringstream DUMPBUF;
 inline void dump_func() { DUMPBUF << std::endl; }
 template <class Head, class... Tail> void dump_func(Head&& head, Tail&&... tail) { DUMPBUF << head; if (sizeof...(Tail) == 0) { DUMPBUF << " "; } else { DUMPBUF << ", "; } dump_func(std::move(tail)...); }
 
+template <typename T>
+inline std::enable_if_t<std::is_integral_v<T>, std::string> int_to_delimited_string(T number) {
+    std::string number_str = std::to_string(number);
+    std::string result;
 
+    int count = 0;
+    for (auto it = number_str.rbegin(); it != number_str.rend(); ++it) {
+        if (count != 0 && count % 3 == 0) {
+            result.push_back('_');
+        }
+        result.push_back(*it);
+        count++;
+    }
+
+    std::ranges::reverse(result);
+    return result;
+}
 
 inline double is_intersect(double cx, double cy, double r, double x1, double y1, double x2, double y2) {
     x1 -= cx; x2 -= cx; y1 -= cy; y2 -= cy;
