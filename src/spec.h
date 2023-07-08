@@ -59,7 +59,11 @@ struct Problem {
     }
 
     static Problem from_file(int problem_id) {
+#ifdef _MSC_VER
+        return from_file("../../data/problems/problem-" + std::to_string(problem_id) + ".json");
+#else
         return from_file("../data/problems/problem-" + std::to_string(problem_id) + ".json");
+#endif
     }
 
     static Problem from_file(std::string path) {
