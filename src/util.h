@@ -80,7 +80,8 @@ inline std::optional<Solution> create_random_solution(const Problem& problem, Xo
 
     Timer timer;
 
-    constexpr double eps = 1e-8;
+    //constexpr double eps = 1e-8;
+    constexpr double eps = 0;
     constexpr double margin = 10.0 + eps;
     double bb_left = problem.stage_x + margin;
     double bb_right = problem.stage_x + problem.stage_w - margin;
@@ -88,7 +89,7 @@ inline std::optional<Solution> create_random_solution(const Problem& problem, Xo
     double bb_top = problem.stage_y + problem.stage_h - margin;
 
     std::vector<Placement> placements;
-    
+
     while (timer.elapsed_ms() < timelimit && placements.size() < problem.musicians.size()) {
         double x = bb_left + (bb_right - bb_left) * rnd.next_double();
         double y = bb_bottom + (bb_top - bb_bottom) * rnd.next_double();

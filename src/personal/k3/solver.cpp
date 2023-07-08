@@ -105,41 +105,6 @@ Solution create_trivial_solution(const Problem& problem) {
 
 }
 
-std::optional<Solution> create_random_solution(const Problem& problem, Xorshift& rnd, double timelimit = 1000) {
-
-    Timer timer;
-
-    //constexpr double eps = 1e-8;
-    constexpr double eps = 0;
-    constexpr double margin = 10.0 + eps;
-    double bb_left = problem.stage_x + margin;
-    double bb_right = problem.stage_x + problem.stage_w - margin;
-    double bb_bottom = problem.stage_y + margin;
-    double bb_top = problem.stage_y + problem.stage_h - margin;
-
-    std::vector<Placement> placements;
-
-    while (timer.elapsed_ms() < timelimit && placements.size() < problem.musicians.size()) {
-        double x = bb_left + (bb_right - bb_left) * rnd.next_double();
-        double y = bb_bottom + (bb_top - bb_bottom) * rnd.next_double();
-        bool overlap = false;
-        for (const auto& [px, py] : placements) {
-            if ((x - px) * (x - px) + (y - py) * (y - py) < margin * margin) {
-                overlap = true;
-                break;
-            }
-        }
-        if (overlap) continue;
-        placements.emplace_back(x, y);
-    }
-
-    if (placements.size() < problem.musicians.size()) return std::nullopt;
-
-    Solution solution;
-    solution.placements = placements;
-    return solution;
-
-}
 
 void solve(int problem_id) {
 
