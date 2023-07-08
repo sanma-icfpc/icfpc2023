@@ -1,4 +1,9 @@
 #pragma once
+#include <vector>
+#include <string>
+#include <fstream>
+#include <sstream>
+#include <nlohmann/json.hpp>
 
 static constexpr int k_musician_radius = 5;
 
@@ -9,7 +14,7 @@ struct Attendee {
     std::vector<double> tastes;
 
     std::string stringify() const {
-        std::string res = format("Attendee {x=%f, y=%f, tastes=[", x, y);
+        std::string res = "Attendee {x=" + std::to_string(x) + ", y=" + std::to_string(y) + ", tastes=[";
         res += std::to_string(tastes[0]);
         for (int i = 1; i < tastes.size(); i++) {
             res += ", " + std::to_string(tastes[i]);
@@ -53,7 +58,7 @@ struct Problem {
     }
 
     static Problem from_file(int problem_id) {
-        return from_file(format("../data/problems/problem-%d.json", problem_id));
+        return from_file("../data/problems/problem-" + std::to_string(problem_id) + ".json");
     }
 
     static Problem from_file(std::string path) {
@@ -99,7 +104,7 @@ struct Placement {
 
     Placement(double x = 0.0, double y = 0.0) : x(x), y(y) {}
 
-    std::string stringify() const { return format("(%f, %f)", x, y); }
+    std::string stringify() const { return "(" + std::to_string(x) + ", " + std::to_string(y) + ")"; }
 
 };
 
@@ -108,9 +113,13 @@ struct Solution {
     std::vector<Placement> placements;
 
     std::string stringify() const {
-        std::ostringstream oss;
-        oss << placements;
-        return oss.str();
+        if (placements.empty()) return "{}";
+        std::string res = "{" + placements[0].stringify();
+        for (int i = 1; i < (int)placements.size(); i++) {
+            res += ", " + placements[i].stringify();
+        }
+        res += "}";
+        return res;
     }
 
     static Solution from_file(std::string path) {

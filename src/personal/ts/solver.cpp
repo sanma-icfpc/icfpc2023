@@ -1,4 +1,3 @@
-#include "../../../src/k3common.h"
 #include "../../../src/spec.h"
 #include "../../../src/util.h"
 

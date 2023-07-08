@@ -4,7 +4,6 @@
 #include <CLI/CLI.hpp>
 #include <omp.h>
 
-#include "k3common.h"
 #include "spec.h"
 #include "util.h"
 

@@ -1,6 +1,86 @@
-#include "../../../src/k3common.h"
-#include "../../../src/spec.h"
-#include "../../../src/util.h"
+#define _CRT_NONSTDC_NO_WARNINGS
+#define _SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING
+
+#include "../../spec.h"
+#include "../../util.h"
+
+#ifndef _MSC_VER
+#include <bits/stdc++.h>
+#endif
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <random>
+#include <unordered_set>
+#include <array>
+#include <optional>
+#include <regex>
+#include <nlohmann/json.hpp>
+#ifdef USE_OPENCV
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-enum-enum-conversion"
+#include <opencv2/core.hpp>
+#include <opencv2/core/utils/logger.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/highgui.hpp>
+#pragma GCC diagnostic pop
+#endif
+#ifdef _MSC_VER
+#include <conio.h>
+#include <ppl.h>
+#include <filesystem>
+#include <intrin.h>
+/* g++ functions */
+inline int __builtin_clz(unsigned int n) { unsigned long index; _BitScanReverse(&index, n); return 31 - index; }
+inline int __builtin_ctz(unsigned int n) { unsigned long index; _BitScanForward(&index, n); return index; }
+namespace std { inline int __lg(int __n) { return sizeof(int) * 8 - 1 - __builtin_clz(__n); } }
+/* enable __uint128_t in MSVC */
+//#include <boost/multiprecision/cpp_int.hpp>
+//using __uint128_t = boost::multiprecision::uint128_t;
+#else
+#pragma GCC target("avx2")
+#pragma GCC optimize("O3")
+#pragma GCC optimize("unroll-loops")
+#endif
+
+/** compro io **/
+namespace aux {
+    template<typename T, unsigned N, unsigned L> struct tp { static void output(std::ostream& os, const T& v) { os << std::get<N>(v) << ", "; tp<T, N + 1, L>::output(os, v); } };
+    template<typename T, unsigned N> struct tp<T, N, N> { static void output(std::ostream& os, const T& v) { os << std::get<N>(v); } };
+}
+template<typename... Ts> std::ostream& operator<<(std::ostream& os, const std::tuple<Ts...>& t) { os << '{'; aux::tp<std::tuple<Ts...>, 0, sizeof...(Ts) - 1>::output(os, t); return os << '}'; } // tuple out
+template<class Ch, class Tr, class Container, class = decltype(std::begin(std::declval<Container&>()))> std::basic_ostream<Ch, Tr>& operator<<(std::basic_ostream<Ch, Tr>& os, const Container& x); // container out (fwd decl)
+template<class S, class T> std::ostream& operator<<(std::ostream& os, const std::pair<S, T>& p) { return os << '{' << p.first << ", " << p.second << '}'; } // pair out
+template<class S, class T> std::istream& operator>>(std::istream& is, std::pair<S, T>& p) { return is >> p.first >> p.second; } // pair in
+inline std::ostream& operator<<(std::ostream& os, const std::vector<bool>::reference& v) { os << (v ? '1' : '0'); return os; } // bool (vector) out
+inline std::ostream& operator<<(std::ostream& os, const std::vector<bool>& v) { bool f = true; os << '{'; for (const auto& x : v) { os << (f ? "" : ", ") << x; f = false; } os << '}'; return os; } // vector<bool> out
+template<class Ch, class Tr, class Container, class> std::basic_ostream<Ch, Tr>& operator<<(std::basic_ostream<Ch, Tr>& os, const Container& x) { bool f = true; os << '{'; for (auto& y : x) { os << (f ? "" : ", ") << y; f = false; } return os << '}'; } // container out
+template<class T, class = decltype(std::begin(std::declval<T&>())), class = typename std::enable_if<!std::is_same<T, std::string>::value>::type> std::istream& operator>>(std::istream& is, T& a) { for (auto& x : a) is >> x; return is; } // container in
+template<typename T> auto operator<<(std::ostream& out, const T& t) -> decltype(out << t.stringify()) { out << t.stringify(); return out; } // struct (has stringify() func) out
+/** io setup **/
+struct IOSetup { IOSetup(bool f) { if (f) { std::cin.tie(nullptr); std::ios::sync_with_stdio(false); } std::cout << std::fixed << std::setprecision(15); } }
+iosetup(true); // set false when solving interective problems
+/** shuffle **/
+template<typename T> void shuffle_vector(std::vector<T>& v, Xorshift& rnd) { int n = v.size(); for (int i = n - 1; i >= 1; i--) { int r = rnd.next_int(i); std::swap(v[i], v[r]); } }
+/** split **/
+inline std::vector<std::string> split(const std::string& str, const std::string& delim) {
+    std::vector<std::string> res;
+    std::string buf;
+    for (const auto& c : str) {
+        if (delim.find(c) != std::string::npos) {
+            if (!buf.empty()) res.push_back(buf);
+            buf.clear();
+        }
+        else buf += c;
+    }
+    if (!buf.empty()) res.push_back(buf);
+    return res;
+}
+/** misc **/
+template<typename A, size_t N, typename T> inline void Fill(A(&array)[N], const T& val) { std::fill((T*)array, (T*)(array + N), val); } // fill array
+template<typename T, typename ...Args> auto make_vector(T x, int arg, Args ...args) { if constexpr (sizeof...(args) == 0)return std::vector<T>(arg, x); else return std::vector(arg, make_vector<T>(x, args...)); }
+
+
 
 Solution create_trivial_solution(const Problem& problem) {
 
@@ -134,9 +214,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     cv::utils::logging::setLogLevel(cv::utils::logging::LogLevel::LOG_LEVEL_SILENT);
 #endif
 
-    for (int problem_id = 4; problem_id <= 45; problem_id++) {
-        solve(problem_id);
-    }
+    solve(1);
 
     return 0;
 }

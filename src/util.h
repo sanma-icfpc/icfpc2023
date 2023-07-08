@@ -1,8 +1,70 @@
 #pragma once
+#ifdef _MSC_VER
+#include <ppl.h>
+#endif
+#include <iostream>
+#include <climits>
 #include <regex>
+#include <optional>
 #include <glog/logging.h>
-#include "k3common.h"
 #include "spec.h"
+
+template<typename T> bool chmax(T& a, const T& b) { if (a < b) { a = b; return true; } return false; }
+template<typename T> bool chmin(T& a, const T& b) { if (a > b) { a = b; return true; } return false; }
+
+/** string formatter **/
+template<typename... Ts>
+std::string format(const std::string& f, Ts... t) {
+    size_t l = std::snprintf(nullptr, 0, f.c_str(), t...);
+    std::vector<char> b(l + 1);
+    std::snprintf(&b[0], l + 1, f.c_str(), t...);
+    return std::string(&b[0], &b[0] + l);
+}
+
+/** rand **/
+struct Xorshift {
+    static constexpr uint64_t M = INT_MAX;
+    static constexpr double e = 1.0 / M;
+    uint64_t x = 88172645463325252LL;
+    Xorshift() {}
+    Xorshift(uint64_t seed) { reseed(seed); }
+    inline void reseed(uint64_t seed) { x = 0x498b3bc5 ^ seed; for (int i = 0; i < 20; i++) next(); }
+    inline uint64_t next() { x = x ^ (x << 7); return x = x ^ (x >> 9); }
+    inline int next_int() { return next() & M; }
+    inline int next_int(int mod) { return next() % mod; }
+    inline int next_int(int l, int r) { return l + next_int(r - l + 1); }
+    inline double next_double() { return next_int() * e; }
+};
+
+/** timer **/
+class Timer {
+    double t = 0, paused = 0, tmp;
+public:
+    Timer() { reset(); }
+    static double time() {
+#ifdef _MSC_VER
+        return __rdtsc() / 3.0e9;
+#else
+        unsigned long long a, d;
+        __asm__ volatile("rdtsc"
+            : "=a"(a), "=d"(d));
+        return (d << 32 | a) / 3.0e9;
+#endif
+    }
+    void reset() { t = time(); }
+    void pause() { tmp = time(); }
+    void restart() { paused += time() - tmp; }
+    double elapsed_ms() const { return (time() - t - paused) * 1000.0; }
+};
+
+/** dump args **/
+#define DUMPOUT std::cerr
+static std::ostringstream DUMPBUF;
+#define DUMP(...) do{DUMPBUF<<"  ";DUMPBUF<<#__VA_ARGS__<<" :[DUMP - "<<__LINE__<<":"<<__FUNCTION__<<']'<<std::endl;DUMPBUF<<"    ";dump_func(__VA_ARGS__);DUMPOUT<<DUMPBUF.str();DUMPBUF.str("");DUMPBUF.clear();}while(0);
+inline void dump_func() { DUMPBUF << std::endl; }
+template <class Head, class... Tail> void dump_func(Head&& head, Tail&&... tail) { DUMPBUF << head; if (sizeof...(Tail) == 0) { DUMPBUF << " "; } else { DUMPBUF << ", "; } dump_func(std::move(tail)...); }
+
+
 
 inline double is_intersect(double cx, double cy, double r, double x1, double y1, double x2, double y2) {
     x1 -= cx; x2 -= cx; y1 -= cy; y2 -= cy;
