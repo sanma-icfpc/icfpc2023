@@ -70,20 +70,20 @@ struct Changeset {
         };
 
         for (int retry = 0; retry < 100; ++retry) {
-            double x = problem.stage_x + rnd.next_double() * problem.stage_w;
-            double y = problem.stage_y + rnd.next_double() * problem.stage_h;
+            Placement placement {
+                problem.stage_x + rnd.next_double() * problem.stage_w,
+                problem.stage_y + rnd.next_double() * problem.stage_h};
             bool conflict = false;
             for (int kk = 0; kk < solution.placements.size(); ++kk) {
                 if (i != kk) {
-                    double d2 = SQ(solution.placements[kk].x - x) + SQ(solution.placements[kk].y - y);
-                    if (d2 < k_musician_spacing_radius * k_musician_spacing_radius) {
+                    if (are_musicians_too_close(solution.placements[kk], placement)) {
                         conflict = true;
                         break;
                     }
                 }
             }
             if (!conflict) {
-                chg.i_after = {x, y};
+                chg.i_after = placement;
                 break;
             }
         }
@@ -162,15 +162,15 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
                 changeset = Changeset::sample_random_motion(problem, rnd, current_solution);
                 gain = cache.change_musician(changeset.i, changeset.i_after);
             }
+            const double p = std::exp(double(gain) / T);
             int64_t score = cache.score();
             if (chmax(best_score, score)) {
                 changeset.apply(current_solution);
                 best_solution = current_solution;
                 ++accept;
                 DUMP(loop, best_score, accept, reject);
-            } else {
-                const double p = std::exp(double(gain) / T);
                 DUMP(t / t_max, T, gain, p);
+            } else {
                 if (gain > 0 || rnd.next_double() < p) {
                     // accept
                     ++accept;

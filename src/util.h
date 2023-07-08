@@ -96,6 +96,24 @@ inline double is_intersect(double cx, double cy, double r, double x1, double y1,
     return 0 <= f0 && 0 <= f1 && -a <= b && b <= 0 && a * c <= b * b;
 }
 
+template <typename T1, typename T2, typename T3>
+inline double is_intersect(const T1& c, double r, const T2& p1, const T3& p2) {
+    return is_intersect(c.x, c.y, r, p1.x, p1.y, p2.x, p2.y);
+}
+
+template <typename T1, typename T2>
+inline double distance_squared(const T1& p1, const T2& p2) {
+    return SQ(p1.x - p2.x) + SQ(p1.y - p2.y);
+}
+
+inline bool are_musicians_too_close(const Placement& p1, const Placement& p2, double eps_margin_for_safty = 1e-3) {
+    // To ensure they have enough room for playing, they must not
+    // have any other musician or an edge of the stage in a circle of radius 10 centered
+    // on them. A placement where a musician is at distance exactly 10 from an edge or
+    // another musician will be considered as valid. 
+    return distance_squared(p1, p2) + eps_margin_for_safty <= k_musician_spacing_radius * k_musician_spacing_radius;
+}
+
 inline std::optional<Solution> create_random_solution(const Problem& problem, Xorshift& rnd, double timelimit = 1000) {
 
     Timer timer;
@@ -180,11 +198,11 @@ public:
         const auto& musicians = m_problem.musicians;
         const auto& attendees = m_problem.attendees;
         const auto& placements = m_solution.placements;
+        LOG_ASSERT(musicians.size() == placements.size());
 
         int64_t score_gain = 0;
         { // score that musician k_changed offers.
             int t = m_problem.musicians[k_changed];
-            double mx = curr_placement.x, my = curr_placement.y;
 #pragma omp parallel for reduction(+:score_gain)
             for (int i = 0; i < attendees.size(); i++) {
                 double ax = attendees[i].x, ay = attendees[i].y;
@@ -195,15 +213,14 @@ public:
                     if (partial_block(k_changed, kk, i)) {
                         prev_blocked = true;
                     }
-                    double cx = placements[kk].x, cy = placements[kk].y;
-                    if (is_intersect(cx, cy, 5.0, mx, my, ax, ay)) {
+                    if (is_intersect(placements[kk], 5.0, curr_placement, attendees[i])) {
                         blocked = true;
                         partial_block(k_changed, kk, i) = true;
                     } else {
                         partial_block(k_changed, kk, i) = false;
                     }
                 }
-                double d2 = (ax - mx) * (ax - mx) + (ay - my) * (ay - my);
+                double d2 = distance_squared(attendees[i], curr_placement);
                 double taste = attendees[i].tastes[t];
                 int64_t prev = partial_score(k_changed, i);
                 int64_t curr = (int64_t)ceil(1e6 * taste / d2);
@@ -217,10 +234,8 @@ public:
         for (int k = 0; k < musicians.size(); k++) {
             if (k == k_changed) continue;
             int t = m_problem.musicians[k];
-            double mx = placements[k].x, my = placements[k].y;
             for (int i = 0; i < attendees.size(); i++) {
-                double ax = attendees[i].x, ay = attendees[i].y;
-                bool blocked = is_intersect(curr_placement.x, curr_placement.y, 5.0, mx, my, ax, ay);
+                bool blocked = is_intersect(curr_placement, 5.0, placements[k], attendees[i]);
                 double taste = attendees[i].tastes[t];
                 int64_t prev = partial_score(k, i);
                 score_gain += (blocked ? 0 : prev) - (partial_block(k, k_changed, i) ? 0 : prev);
@@ -247,18 +262,16 @@ public:
 
         for (int k = 0; k < musicians.size(); k++) {
             int t = m_problem.musicians[k];
-            double mx = placements[k].x, my = placements[k].y;
             for (int i = 0; i < attendees.size(); i++) {
                 double ax = attendees[i].x, ay = attendees[i].y;
                 bool blocked = false;
                 for (int kk = 0; kk < musicians.size(); kk++) {
-                    double cx = placements[kk].x, cy = placements[kk].y;
-                    if (k != kk && is_intersect(cx, cy, 5.0, mx, my, ax, ay)) {
+                    if (k != kk && is_intersect(placements[kk], 5.0, placements[k], attendees[i])) {
                         blocked = true;
                         partial_block(k, kk, i) = true;
                     }
                 }
-                double d2 = (ax - mx) * (ax - mx) + (ay - my) * (ay - my);
+                double d2 = distance_squared(placements[k], attendees[i]);
                 double taste = attendees[i].tastes[t];
                 int64_t curr = (int64_t)ceil(1e6 * taste / d2);
                 m_score += blocked ? 0 : curr;
