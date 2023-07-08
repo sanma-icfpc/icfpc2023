@@ -144,6 +144,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     Xorshift rnd(42);
     Solution best_solution = input_solution;
 
+    const int num_force_reset_iter = 3000;
     CachedComputeScore cache(problem);
     cache.full_compute(best_solution);
     int64_t best_score = input_score;
@@ -153,6 +154,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
         int loop = 0;
         while (timer.elapsed_ms() < t_max) {
             loop++;
+            if (num_force_reset_iter > 0 &&  loop % num_force_reset_iter == 0) cache.full_compute(best_solution);
             auto changeset = Changeset::sample_random_mutation(problem, rnd, best_solution);
             cache.change_musician(changeset.i, changeset.i_after);
             cache.change_musician(changeset.j, changeset.j_after);
@@ -178,6 +180,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
         while ((t = timer.elapsed_ms()) < t_max) {
             const double T = T_stop + (T_start - T_stop) * (1.0 - t / t_max);
             loop++;
+            if (num_force_reset_iter > 0 &&  loop % num_force_reset_iter == 0) cache.full_compute(best_solution);
             Changeset changeset;
             int64_t gain = 0;
             double action = rnd.next_double();
@@ -219,8 +222,10 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
         int accept = 0, reject = 0;
         while ((t = timer.elapsed_ms()) < t_max) {
             // LS
+            bool reset = false;
             for (int ls = 0; ls < 100 && timer.elapsed_ms() < t_max; ++ls) {
                 loop++;
+                if (num_force_reset_iter > 0 &&  loop % num_force_reset_iter == 0) reset = true;
                 auto changeset = Changeset::sample_random_motion(problem, rnd, current_solution);
                 auto gain = cache.change_musician(changeset.i, changeset.i_after);
                 int64_t score = cache.score();
@@ -228,14 +233,14 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
                     changeset.apply(current_solution);
                     best_solution = current_solution;
                     ++accept;
-                    DUMP("LS", loop, best_score, accept, reject);
+                    //DUMP("LS", loop, best_score, accept, reject);
                 } else {
                     ++reject;
                     if (changeset.i >= 0) cache.change_musician(changeset.i, changeset.i_before);
                 }
             }
             { // kick
-                loop++;
+                if (reset) cache.full_compute(best_solution);
                 auto changeset = Changeset::sample_random_mutation(problem, rnd, current_solution);
                 cache.change_musician(changeset.i, changeset.i_after);
                 cache.change_musician(changeset.j, changeset.j_after);
