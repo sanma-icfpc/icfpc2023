@@ -2,9 +2,8 @@
 #include <stdafx.h>
 #ifdef _MSC_VER
 #include <ppl.h>
-#elif _OPENMP
-#include <omp.h>
 #endif
+#include <omp.h>
 #include <type_traits>
 #include <iostream>
 #include <ranges>
@@ -341,7 +340,7 @@ inline bool is_valid_solution(const Problem& problem, const Solution& solution, 
 }
 
 #ifdef _PPL_H
-inline int64_t compute_score(const Problem& problem, const Solution& solution) {
+inline int64_t compute_score_ppl(const Problem& problem, const Solution& solution) {
 
     const auto& musicians = problem.musicians;
     const auto& attendees = problem.attendees;
@@ -371,8 +370,8 @@ inline int64_t compute_score(const Problem& problem, const Solution& solution) {
     return score.combine(std::plus<int64_t>());
 
 }
-#else
-inline int64_t compute_score(const Problem& problem, const Solution& solution) {
+#endif
+inline int64_t compute_score_omp(const Problem& problem, const Solution& solution) {
 
     const auto& musicians = problem.musicians;
     const auto& attendees = problem.attendees;
@@ -410,7 +409,13 @@ inline int64_t compute_score(const Problem& problem, const Solution& solution) {
     return score;
 
 }
+inline int64_t compute_score(const Problem& problem, const Solution& solution) {
+#ifdef _PPL_H
+    return compute_score_ppl(problem, solution);
+#else
+    return compute_score_omp(problem, solution);
 #endif
+}
 
 struct SegmentMap : public std::map<double, double> {
 
