@@ -16,12 +16,12 @@
     </Link>
     -->
     <ClCompile>
-      <PreprocessorDefinitions>_SILENCE_CXX20_CISO646_REMOVED_WARNING;GOOGLE_GLOG_DLL_DECL=</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\..\src;$(ProjectDir)..\..\libs\CLI11\include;$(ProjectDir)..\..\libs\json\include;$(ProjectDir)..\..\libs\glog_vsbuild;$(ProjectDir)..\..\libs\glog\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_SILENCE_CXX20_CISO646_REMOVED_WARNING;GOOGLE_GLOG_DLL_DECL=;USE_OPENCV</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\src;$(ProjectDir)..\..\libs\opencv\include;$(ProjectDir)..\..\libs\CLI11\include;$(ProjectDir)..\..\libs\json\include;$(ProjectDir)..\..\libs\glog_vsbuild;$(ProjectDir)..\..\libs\glog\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>$(ProjectDir)..\..\libs\glog_vsbuild\$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>fmtd.lib;glogd.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)..\..\libs\glog_vsbuild\$(Configuration);$(ProjectDir)..\..\libs\opencv\x64\vc16\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>fmtd.lib;glogd.lib;opencv_world470d.lib</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -36,12 +36,12 @@
     </Link>
     -->
     <ClCompile>
-      <PreprocessorDefinitions>_SILENCE_CXX20_CISO646_REMOVED_WARNING;GOOGLE_GLOG_DLL_DECL=</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\..\src;$(ProjectDir)..\..\libs\CLI11\include;$(ProjectDir)..\..\libs\json\include;$(ProjectDir)..\..\libs\glog_vsbuild;$(ProjectDir)..\..\libs\glog\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>_SILENCE_CXX20_CISO646_REMOVED_WARNING;GOOGLE_GLOG_DLL_DECL=;USE_OPENCV</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\src;$(ProjectDir)..\..\libs\opencv\include;$(ProjectDir)..\..\libs\CLI11\include;$(ProjectDir)..\..\libs\json\include;$(ProjectDir)..\..\libs\glog_vsbuild;$(ProjectDir)..\..\libs\glog\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
-      <AdditionalLibraryDirectories>$(ProjectDir)..\..\libs\glog_vsbuild\$(Configuration);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>fmt.lib;glog.lib</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(ProjectDir)..\..\libs\glog_vsbuild\$(Configuration);$(ProjectDir)..\..\libs\opencv\x64\vc16\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>fmt.lib;glog.lib;opencv_world470.lib</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup />
