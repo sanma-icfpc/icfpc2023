@@ -180,7 +180,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
         while ((t = timer.elapsed_ms()) < t_max) {
             const double T = T_stop + (T_start - T_stop) * (1.0 - t / t_max);
             loop++;
-            if (num_force_reset_iter > 0 &&  loop % num_force_reset_iter == 0) cache.full_compute(best_solution);
+            if (num_force_reset_iter > 0 &&  loop % num_force_reset_iter == 0) cache.full_compute(current_solution);
             Changeset changeset;
             int64_t gain = 0;
             double action = rnd.next_double();
@@ -240,7 +240,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
                 }
             }
             { // kick
-                if (reset) cache.full_compute(best_solution);
+                if (reset) cache.full_compute(current_solution);
                 auto changeset = Changeset::sample_random_mutation(problem, rnd, current_solution);
                 cache.change_musician(changeset.i, changeset.i_after);
                 cache.change_musician(changeset.j, changeset.j_after);
