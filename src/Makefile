@@ -27,7 +27,7 @@ LDFLAGS+=-L$(LIB_PATH)/glog_build -Wl,-rpath $(LIB_PATH)/glog_build -lglog
 #CXXFLAGS+=-I$(LIB_PATH)/lodepng
 #LDFLAGS+=$(LIB_PATH)/lodepng/lodepng.o
 
-CXXFLAGS+=-I/usr/include/opencv4 -I/mingw64/include/opencv4 -DUSE_OPENCV
+CXXFLAGS+=-I/usr/include/opencv4 -I/mingw64/include/opencv4 -DUSE_OPENCV -fopenmp
 LDFLAGS+=-lopencv_core -lopencv_highgui -lopencv_imgproc -lopencv_imgcodecs
 
 LDFLAGS+=-lpthread

@@ -185,6 +185,7 @@ public:
         { // score that musician k_changed offers.
             int t = m_problem.musicians[k_changed];
             double mx = curr_placement.x, my = curr_placement.y;
+#pragma omp parallel for reduction(+:score_gain)
             for (int i = 0; i < attendees.size(); i++) {
                 double ax = attendees[i].x, ay = attendees[i].y;
                 bool blocked = false;
@@ -212,6 +213,7 @@ public:
         }
 
         // score that musician k_changed blocks/unblocks k -> i.
+#pragma omp parallel for reduction(+:score_gain)
         for (int k = 0; k < musicians.size(); k++) {
             if (k == k_changed) continue;
             int t = m_problem.musicians[k];
