@@ -6,6 +6,7 @@
 #endif
 #include <type_traits>
 #include <iostream>
+#include <ranges>
 #include <climits>
 #include <regex>
 #include <optional>
@@ -397,3 +398,88 @@ inline int64_t compute_score(const Problem& problem, const Solution& solution) {
 
 }
 #endif
+
+struct SegmentMap : public std::map<double, double> {
+
+    bool included(double x) {
+        auto it = upper_bound(x);
+        if (it == begin() || (--it)->second < x) return false;
+        return true;
+    }
+
+    void insert(double l, double r) {
+        auto itl = upper_bound(l), itr = upper_bound(r);
+        if (itl != begin()) {
+            if ((--itl)->second < l) ++itl;
+        }
+        if (itl != itr) {
+            l = std::min(l, itl->first);
+            r = std::max(r, std::prev(itr)->second);
+            erase(itl, itr);
+        }
+        (*this)[l] = r;
+    }
+
+};
+
+int64_t compute_score_fast(const Problem& problem, const Solution& solution) {
+
+    const auto& musicians = problem.musicians;
+    const auto& attendees = problem.attendees;
+    const auto& placements = solution.placements;
+
+    const double PI = atan2(0.0, -1.0);
+
+    std::vector<int64_t> attendee_score(attendees.size());
+    std::vector<SegmentMap> smaps(attendees.size());
+
+#pragma omp parallel for
+    for (int i = 0; i < (int)attendees.size(); i++) {
+
+        double ax = attendees[i].x, ay = attendees[i].y;
+
+        std::vector<double> dist2;
+        dist2.reserve(musicians.size());
+        for (const auto& [mx, my] : placements) {
+            dist2.push_back((ax - mx) * (ax - mx) + (ay - my) * (ay - my));
+        }
+
+        std::vector<int> ord(musicians.size());
+        std::iota(ord.begin(), ord.end(), 0);
+        std::sort(ord.begin(), ord.end(), [&](int i, int j) {
+            return dist2[i] < dist2[j];
+            });
+
+        auto& score = attendee_score[i];
+        auto& smap = smaps[i];
+
+        for (int mid : ord) {
+            auto [mx, my] = placements[mid];
+            mx -= ax; my -= ay;
+            double d2 = dist2[mid];
+            double rad = atan2(my, mx);
+            double drad = atan2(5.0, sqrt(d2 - 25.0));
+            //DUMP(rad, drad);
+            // rad が smap に含まれないなら block されない
+            if (!smap.included(rad)) {
+                double taste = attendees[i].tastes[musicians[mid]];
+                score += (int64_t)ceil(1e6 * taste / d2);
+            }
+            // [rad-drad, rad+drad] を smap にマージ
+            double left = rad - drad, right = rad + drad;
+            if (left < -PI) {
+                smap.insert(left + PI * 2, PI);
+                left = -PI;
+            }
+            if (right > PI) {
+                smap.insert(-PI, right - 2 * PI);
+                right = PI;
+            }
+            smap.insert(left, right);
+        }
+
+    }
+
+    return std::accumulate(attendee_score.begin(), attendee_score.end(), 0LL);
+
+}

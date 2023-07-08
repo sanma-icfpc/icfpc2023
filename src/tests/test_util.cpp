@@ -25,4 +25,18 @@ TEST(TestUtil, CachedComputeScore_inverse_operation_cancels_out_score_gain) {
   EXPECT_EQ(gain_forward + gain_backward, 0);
 }
 
+TEST(TestUtil, test_compute_score_fast) {
+  Problem problem = Problem::from_file(42);
+  Xorshift rnd(42);
+
+  for (int trial = 0; trial < 10; trial++) {
+    Solution solution = *create_random_solution(problem, rnd);
+    auto score_naive = compute_score(problem, solution);
+    auto score_fast = compute_score_fast(problem, solution);
+    LOG(INFO) << "score_naive: " << score_naive;
+    LOG(INFO) << "score_fast : " << score_fast;
+    EXPECT_NEAR(score_naive, score_fast, 100);
+  }
+}
+
 // vim:ts=2 sw=2 sts=2 et ci

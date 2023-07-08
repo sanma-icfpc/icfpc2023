@@ -115,6 +115,7 @@ void solve(int problem_id) {
     ifs >> data;
 
     Problem problem(data);
+    DUMP(problem.musicians.size(), problem.attendees.size());
 
 #if defined(_PPL_H) || defined(_OPENMP)
     constexpr int concurrency_coeff = 1;
@@ -137,7 +138,7 @@ void solve(int problem_id) {
         auto solution_opt = create_random_solution(problem, rnd);
         if (solution_opt) {
             auto solution = solution_opt.value();
-            double score = compute_score(problem, solution);
+            double score = compute_score_fast(problem, solution);
             if (chmax(best_score, score)) {
                 DUMP(loop, best_score, timer.elapsed_ms());
                 best_solution = solution;
@@ -158,13 +159,13 @@ void solve(int problem_id) {
         loop++;
         std::swap(solution.placements[i].x, solution.placements[j].x);
         std::swap(solution.placements[i].y, solution.placements[j].y);
-        double score = compute_score(problem, solution);
+        double score = compute_score_fast(problem, solution);
         if (chmax(best_score, score)) {
             DUMP(loop, best_score, timer.elapsed_ms());
             best_solution = solution;
         }
     }
-    DUMP(loop);
+    DUMP(loop, best_score, compute_score(problem, best_solution));
 
     if (best_score > 0) {
         std::ofstream ofs(format("../data/solutions/k3_v02_k3_v02_random_swap_after_creation/solution-%d.json", problem_id));
@@ -179,7 +180,13 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     cv::utils::logging::setLogLevel(cv::utils::logging::LogLevel::LOG_LEVEL_SILENT);
 #endif
 
-    solve(1);
+    int problem_id = 1;
+    if (argc == 2) {
+        problem_id = std::stoi(argv[1]);
+    }
+    DUMP(problem_id);
+
+    solve(problem_id);
 
     return 0;
 }

@@ -2,6 +2,7 @@
 
 #include <glog/logging.h>
 #include <gtest/gtest.h>
+#include <nlohmann/json.hpp>
 
 TEST(TestExample, SomeTest) {
   EXPECT_TRUE(1 == 1);
