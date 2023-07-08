@@ -1,0 +1,31 @@
+{
+    "attendees": {
+        "max_taste": 999.0,
+        "mean_taste": -105.58318421052631,
+        "median_taste": -119.0,
+        "min_taste": -1000.0,
+        "stdev_taste": 629.4887230931462
+    },
+    "complexity": {
+        "complexity_index": 3136000,
+        "num_attendees": 1000,
+        "num_musicians": 56,
+        "num_pillars": 0
+    },
+    "musicians": {
+        "mean_amount": 1.4736842105263157,
+        "mode_amount": 3,
+        "mode_type": 4,
+        "num_types": 38,
+        "stdev_amount": 0.5954583420518297
+    },
+    "topology": {
+        "room_height": 1000.0,
+        "room_width": 1000.0,
+        "stage_h": 200.0,
+        "stage_ratio": 0.035,
+        "stage_w": 175.0,
+        "stage_x": 28.0,
+        "stage_y": 646.0
+    }
+}

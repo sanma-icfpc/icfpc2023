@@ -469,3 +469,94 @@ int64_t compute_score_fast(const Problem& problem, const Solution& solution) {
     return std::accumulate(attendee_score.begin(), attendee_score.end(), 0LL);
 
 }
+
+nlohmann::json create_problem_stats(Problem& problem) {
+    auto [room_width, room_height, stage_w, stage_h, stage_x, stage_y, musicians, attendees, pillars] = problem;
+    nlohmann::json stats;
+    stats["topology"] = {
+        {"room_width", room_width},
+        {"room_height", room_height},
+        {"stage_w", stage_w},
+        {"stage_h", stage_h},
+        {"stage_x", stage_x},
+        {"stage_y", stage_y},
+        {"stage_ratio", stage_w * stage_h / room_width / room_height}
+    };
+    stats["complexity"] = {
+        {"num_musicians", musicians.size()},
+        {"num_attendees", attendees.size()},
+        {"num_pillars", pillars.size() },
+        {"complexity_index", musicians.size() * musicians.size() * attendees.size() }
+    };
+    {
+        std::map<int, int> type_hist;
+        for (int type : musicians) {
+            type_hist[type]++;
+        }
+        int num_musician_types = type_hist.size();
+        std::pair<int, int> mode;
+        double sum = 0.0, sqsum = 0.0;
+        for (const auto& [type, ctr] : type_hist) {
+            if (mode.second < ctr) {
+                mode = { type, ctr };
+            }
+            sum += ctr;
+            sqsum += ctr * ctr;
+        }
+        double mean = sum / num_musician_types;
+        double var = sqsum / num_musician_types - mean * mean;
+        stats["musicians"] = {
+            {"num_types", num_musician_types},
+            {"mode_type", mode.first},
+            {"mode_amount", mode.second},
+            {"mean_amount", mean},
+            {"stdev_amount", sqrt(var)}
+        };
+    }
+    {
+        std::vector<double> tastes;
+        for (const auto& attendee : attendees) {
+            for (auto taste : attendee.tastes) {
+                tastes.push_back(taste);
+            }
+        }
+        std::sort(tastes.begin(), tastes.end());
+        double min = 1e20, max = -1e20, sum = 0.0, sqsum = 0.0;
+        for (auto taste : tastes) {
+            sum += taste;
+            sqsum += taste * taste;
+            chmin(min, taste);
+            chmax(max, taste);
+        }
+        double mean = sum / tastes.size();
+        double var = sqsum / tastes.size() - mean * mean;
+        double median = tastes[tastes.size() / 2];
+        stats["attendees"] = {
+            {"mean_taste", mean},
+            {"stdev_taste", sqrt(var)},
+            {"median_taste", median},
+            {"min_taste", min},
+            {"max_taste", max}
+        };
+    }
+    if (!pillars.empty()) {
+        const double PI = abs(atan2(0, -1));
+        double min = 1e20, max = -1e20, sum = 0.0, sqsum = 0.0;
+        for (const auto& [x, y, r] : pillars) {
+            chmin(min, r);
+            chmax(max, r);
+            sum += r;
+            sqsum += r * r;
+        }
+        double mean = sum / pillars.size();
+        double var = sqsum / pillars.size() - mean * mean;
+        stats["pillars"] = {
+            {"mean_radius", mean},
+            {"stdev_radius", sqrt(var)},
+            {"min_radius", min},
+            {"max_radius", max},
+            {"area_ratio", sqsum * PI / room_width / room_height}
+        };
+    }
+    return stats;
+}
