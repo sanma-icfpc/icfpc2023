@@ -471,7 +471,7 @@ int64_t compute_score_fast(const Problem& problem, const Solution& solution) {
 }
 
 nlohmann::json create_problem_stats(Problem& problem) {
-    auto [room_width, room_height, stage_w, stage_h, stage_x, stage_y, musicians, attendees, pillars] = problem;
+    auto [room_width, room_height, stage_w, stage_h, stage_x, stage_y, musicians, attendees, pillars, extension] = problem;
     nlohmann::json stats;
     stats["topology"] = {
         {"room_width", room_width},
