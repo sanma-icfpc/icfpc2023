@@ -264,6 +264,12 @@ public:
     }
 
     int64_t full_compute(const Solution& solution) {
+        static bool warned = false;
+        if (!warned) {
+            LOG(WARNING) << __FUNCTION__ << " does not yet support full division extension";
+            warned = true;
+        }
+    
         m_solution = solution;
         const auto& musicians = m_problem.musicians;
         const auto& attendees = m_problem.attendees;
@@ -409,6 +415,11 @@ struct SegmentMap : public std::map<double, double> {
 };
 
 int64_t compute_score_fast(const Problem& problem, const Solution& solution) {
+    static bool warned = false;
+    if (!warned) {
+        LOG(WARNING) << __FUNCTION__ << " does not yet support full division extension";
+        warned = true;
+    }
 
     const auto& musicians = problem.musicians;
     const auto& attendees = problem.attendees;
