@@ -75,7 +75,7 @@ def command_problems(options):
                   for name in os.listdir(PROBLEMS_DIR))
     if current < number:
         print(
-            "Currently we have only {current} problems. Download unavailable problems.")
+            f"Currently we have only {current} problems. Download unavailable problems.")
         command_problem(list(range(1, number + 1)))
 
     return True
