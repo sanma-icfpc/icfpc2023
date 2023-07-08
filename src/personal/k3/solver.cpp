@@ -105,6 +105,30 @@ Solution create_trivial_solution(const Problem& problem) {
 
 }
 
+struct State {
+
+    Problem m_problem;
+
+    State(const Problem& problem) : m_problem(problem) {
+
+        // block[sk][i][tk]: sk と i を結ぶ線分と tk 中心の円が交差するか？
+        // sk から i が見える条件: block[sk][i][:] が false
+        
+        // k を削除
+        // 1. for sk in K\{k}: for i in I: block[sk][i][k] = false
+        // 2. block[k][:][:] = false
+        
+        // k を追加
+        // 1. for sk in K\{k}: for i in I: block[sk][i][k] = (交差判定)
+        // 2. for i in I: for tk in K\{k}: block[k][i][tk] = (交差判定)
+
+        // block_ctr[sk][i]: block[sk][i][:] のうち true であるものの個数
+        // block_ctr[sk][i] が 0 とそれ以外を行き来する際に gain の変化が生じるはず
+
+    }
+
+};
+
 
 
 void solve(int problem_id) {
@@ -112,8 +136,7 @@ void solve(int problem_id) {
     Timer timer;
 
     std::string in_file = format("../data/problems/problem-%d.json", problem_id);
-    //std::string sol_file = format("/home/komori3/dev/icfpc2023/data/solutions/k3_v03_climbing/solution-8_1447259902.json");
-    std::string out_file_format = "../data/solutions/k3_v03_climbing/solution-%d_%lld.json";
+    std::string out_file_format = "../data/solutions/k3_v04_tmp/solution-%d_%lld.json";
     nlohmann::json data;
     {
         std::ifstream ifs(in_file);
@@ -123,11 +146,7 @@ void solve(int problem_id) {
     Problem problem(data);
     DUMP(problem.musicians.size(), problem.attendees.size());
 
-#if defined(_PPL_H) || defined(_OPENMP)
     constexpr int concurrency_coeff = 1;
-#else
-    constexpr int concurrency_coeff = 10;
-#endif
     constexpr int timelimit_phase1 = 10000 * concurrency_coeff;
     constexpr int timelimit_phase2 = 10000000 * concurrency_coeff;
 

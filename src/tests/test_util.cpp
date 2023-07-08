@@ -7,6 +7,8 @@
 
 TEST(TestUtil, guess_problem_id) {
   EXPECT_EQ(guess_problem_id("path\\to\\problem-15.json"), 15);
+  EXPECT_EQ(guess_problem_id("path\\to\\solution-16.json"), 16);
+  EXPECT_EQ(guess_problem_id("path\\to\\solution-17_12345.json"), 17);
 }
 
 TEST(TestUtil, CachedComputeScore_inverse_operation_cancels_out_score_gain) {

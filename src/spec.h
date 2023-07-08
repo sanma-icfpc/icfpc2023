@@ -1,4 +1,6 @@
 #pragma once
+#include <stdafx.h>
+#include <filesystem>
 #include <fstream>
 #include <nlohmann/json.hpp>
 #include <sstream>
@@ -71,9 +73,13 @@ struct Problem {
     }
   }
 
-    static Problem from_file(int problem_id) {
-        return from_file("../data/problems/problem-" + std::to_string(problem_id) + ".json");
-    }
+  static Problem from_file(int problem_id) {
+    // Linux: cwd = /src
+    // Windows: cwd = /vs
+    std::filesystem::path json_path("../data/problems/problem-" + std::to_string(problem_id) + ".json");
+    LOG_ASSERT(std::filesystem::is_regular_file(json_path));
+    return from_file(json_path.string());
+  }
 
   static Problem from_file(std::string path) {
     std::ifstream ifs(path.c_str());

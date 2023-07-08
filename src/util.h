@@ -1,4 +1,5 @@
 #pragma once
+#include <stdafx.h>
 #ifdef _MSC_VER
 #include <ppl.h>
 #elif _OPENMP
