@@ -36,34 +36,37 @@ struct Pillar {
 };
 
 struct Extension {
-    bool consider_pillars = false; // Full Division, Extension 1: Obstacles in the Room
-    bool consider_harmony = false; // Full Division, Extension 2: Playing Together
-    auto operator<=>(const Extension&) const = default;
-    static Extension from_problem_id(int problem_id) {
-        if (problem_id <= 55) {
-            return lightning();
-        }
-        return full();
+  bool consider_pillars = false; // Full Division, Extension 1: Obstacles in the Room
+  bool consider_harmony = false; // Full Division, Extension 2: Playing Together
+  auto operator<=>(const Extension&) const = default;
+  std::string stringify() const {
+    return "{.consider_pillars=" + std::to_string(consider_pillars) + ", .consider_harmony=" + std::to_string(consider_harmony) + "}";
+  }
+  static Extension from_problem_id(int problem_id) {
+    if (problem_id <= 55) {
+      return lightning();
     }
-    static constexpr Extension lightning() { return Extension {false, false}; }
-    static constexpr Extension full() { return Extension {true, true}; }
+    return full();
+  }
+  static constexpr Extension lightning() { return Extension {false, false}; }
+  static constexpr Extension full() { return Extension {true, true}; }
 };
 
 inline std::optional<int> guess_problem_id(std::string some_file_path) {
-    std::regex pattern(".*-(\\d+)");
-    std::smatch matches;
+  std::regex pattern(".*-(\\d+)");
+  std::smatch matches;
 
-    if (std::regex_search(some_file_path, matches, pattern)) {
-        std::string numberString = matches[1].str();
-        try {
-            return stoi(numberString);
-        } catch (const std::invalid_argument& e) {
-            LOG(ERROR) << "Invalid argument: " << e.what();
-        } catch (const std::out_of_range& e) {
-            LOG(ERROR) << "Out of range: " << e.what();
-        }
+  if (std::regex_search(some_file_path, matches, pattern)) {
+    std::string numberString = matches[1].str();
+    try {
+      return stoi(numberString);
+    } catch (const std::invalid_argument& e) {
+      LOG(ERROR) << "Invalid argument: " << e.what();
+    } catch (const std::out_of_range& e) {
+      LOG(ERROR) << "Out of range: " << e.what();
     }
-    return std::nullopt;
+  }
+  return std::nullopt;
 }
 
 struct Problem {

@@ -374,7 +374,7 @@ inline int64_t compute_score(const Problem& problem, const Solution& solution) {
 #pragma omp critical(crit_sct)
             {
                 if (extension.consider_harmony) {
-                    score += harmony[k] * (int64_t)ceil(1e6 * taste / d2);
+                    score += (int64_t)ceil(harmony[k] * (int64_t)ceil(1e6 * taste / d2));
                 } else {
                     score += (int64_t)ceil(1e6 * taste / d2);
                 }

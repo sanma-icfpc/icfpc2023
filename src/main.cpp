@@ -70,6 +70,7 @@ int main(int argc, char* argv[]) {
   if (sub_eval->parsed()) {
     if (auto problem_id = guess_problem_id(solution_file)) {
       Problem problem = Problem::from_file(*problem_id);
+      LOG(INFO) << "Extension " << problem.extension.stringify();
       Solution solution = Solution::from_file(solution_file);
       int64_t score = compute_score(problem, solution);
       if (is_valid_solution(problem, solution, true)) {
