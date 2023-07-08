@@ -71,7 +71,11 @@ int main(int argc, char* argv[]) {
       Problem problem = Problem::from_file(*problem_id);
       Solution solution = Solution::from_file(solution_file);
       int64_t score = compute_score(problem, solution);
-      std::cout << format("score = %I64d (%s)", score, int_to_delimited_string(score).c_str()) << std::endl;
+      if (is_valid_solution(problem, solution, true)) {
+        std::cout << format("[  VALID] score = %I64d (%s)", score, int_to_delimited_string(score).c_str()) << std::endl;
+      } else {
+        std::cout << format("[INVALID] score = %I64d (%s)", score, int_to_delimited_string(score).c_str()) << std::endl;
+      }
     }
   }
 

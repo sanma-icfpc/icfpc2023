@@ -106,9 +106,9 @@ inline double distance_squared(const T1& p1, const T2& p2) {
     return SQ(p1.x - p2.x) + SQ(p1.y - p2.y);
 }
 
-inline bool is_musician_on_stage(const Problem& problem, const Placement& p) {
-    return problem.stage_x <= p.x && p.x <= problem.stage_x + problem.stage_w
-        && problem.stage_y <= p.y && p.y <= problem.stage_y + problem.stage_h;
+inline bool is_musician_on_stage(const Problem& problem, const Placement& p, double eps_margin_for_safty = 0.0) {
+    return problem.stage_x + k_musician_spacing_radius + eps_margin_for_safty <= p.x && p.x + k_musician_spacing_radius + eps_margin_for_safty <= problem.stage_x + problem.stage_w
+        && problem.stage_y + k_musician_spacing_radius + eps_margin_for_safty <= p.y && p.y + k_musician_spacing_radius + eps_margin_for_safty <= problem.stage_y + problem.stage_h;
 }
 
 inline bool are_musicians_too_close(const Placement& p1, const Placement& p2, double eps_margin_for_safty = 1e-3) {
@@ -299,6 +299,32 @@ public:
         return m_score;
     }
 };
+
+inline bool is_valid_solution(const Problem& problem, const Solution& solution, bool verbose = false) {
+#define CHECK_VALID(expr, msg) \
+    if (!(expr)) { if (verbose) { valid = false; LOG(INFO) << (msg); } else { return false; } }
+
+    bool valid = true;
+    CHECK_VALID(problem.musicians.size() == solution.placements.size(), 
+        format("size mismatch: problem.mucisians(%d) != solution.placements(%d)", problem.musicians.size(), solution.placements.size()));
+
+    for (int k = 0; k < problem.musicians.size(); k++) {
+        CHECK_VALID(is_musician_on_stage(problem, solution.placements[k]),
+            format("bad musician position: %d (%f, %f)", k, solution.placements[k].x, solution.placements[k].y)); 
+        for (int kk = k + 1; kk < problem.musicians.size(); kk++) {
+            CHECK_VALID(!are_musicians_too_close(solution.placements[k], solution.placements[kk]),
+                format("musicians are too close: %d (%f, %f) .. %d (%f, %f) (distance = %f)",
+                    k, solution.placements[k].x, solution.placements[k].y,
+                    kk, solution.placements[kk].x, solution.placements[kk].y,
+                    std::sqrt(distance_squared(solution.placements[k], solution.placements[kk]))));
+        }
+    }
+#undef CHECK_VALID
+    if (verbose) {
+        LOG(INFO) << "solution is valid";
+    }
+    return valid;
+}
 
 #ifdef _PPL_H
 inline int64_t compute_score(const Problem& problem, const Solution& solution) {
