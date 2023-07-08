@@ -176,6 +176,95 @@ inline std::optional<int> guess_problem_id(std::string some_file_path) {
 int debug_count = 0;
 inline int64_t compute_score(const Problem& problem, const Solution& solution);
 
+struct Changeset {
+    int change_type = 0;
+    int i = -1;
+    int j = -1;
+    Placement i_before, i_after;
+    Placement j_before, j_after;
+    void apply(Solution& solution) const {
+        switch (change_type) {
+            case 0:
+            std::swap(solution.placements[i], solution.placements[j]);
+            break;
+            case 1:
+            solution.placements[i] = i_after;
+            break;
+        }
+    }
+    static Changeset sample_random_mutation(const Problem& problem, Xorshift& rnd, Solution& solution) {
+        const size_t N = solution.placements.size();
+        const int i = rnd.next_int() % N;
+        const int j = (i + 1 + rnd.next_int() % (N - 1)) % N;
+        LOG_ASSERT(0 <= i && i < N && 0 <= j && j < N && i != j);
+
+        return Changeset { 0, i, j, 
+            solution.placements[i], solution.placements[j],
+            solution.placements[j], solution.placements[i],
+        };
+    }
+    static Changeset sample_random_delta(const Problem& problem, Xorshift& rnd, Solution& solution) {
+        const size_t N = solution.placements.size();
+        const int i = rnd.next_int() % N;
+
+        Changeset chg { 1, i, -1, 
+            solution.placements[i], solution.placements[i], 
+            {0.0, 0.0}, {0.0, 0.0},
+        };
+
+        for (int retry = 0; retry < 100; ++retry) {
+            Placement placement = solution.placements[i];
+            placement.x += rnd.next_double() * 3.0;
+            placement.y += rnd.next_double() * 3.0;
+            if (!is_musician_on_stage(problem, placement)) continue;
+            bool conflict = false;
+            for (int kk = 0; kk < solution.placements.size(); ++kk) {
+                if (i != kk) {
+                    if (are_musicians_too_close(solution.placements[kk], placement)) {
+                        conflict = true;
+                        break;
+                    }
+                }
+            }
+            if (conflict) continue;
+            chg.i_after = placement;
+        }
+
+        return chg;
+    }
+    static Changeset sample_random_motion(const Problem& problem, Xorshift& rnd, Solution& solution, bool verbose = false) {
+        const size_t N = solution.placements.size();
+        const int i = rnd.next_int() % N;
+
+        Changeset chg { 1, i, -1, 
+            solution.placements[i], solution.placements[i], 
+            {0.0, 0.0}, {0.0, 0.0},
+        };
+
+        for (int retry = 0; retry < 100; ++retry) {
+            Placement placement {
+                problem.stage_x + k_musician_spacing_radius + rnd.next_double() * (problem.stage_w - k_musician_spacing_radius * 2),
+                problem.stage_y + k_musician_spacing_radius + rnd.next_double() * (problem.stage_h - k_musician_spacing_radius * 2)};
+            if (!is_musician_on_stage(problem, placement)) continue;
+            bool conflict = false;
+            for (int kk = 0; kk < solution.placements.size(); ++kk) {
+                if (i != kk) {
+                    if (are_musicians_too_close(solution.placements[kk], placement)) {
+                        conflict = true;
+                        break;
+                    }
+                }
+            }
+            if (!conflict) {
+                chg.i_after = placement;
+                break;
+            }
+        }
+
+        return chg;
+    }
+};
+
 // still has some bugs..
 struct CachedComputeScore {
 public:
@@ -216,7 +305,7 @@ public:
     int64_t score() const { return m_score; }
 
     int64_t change_musician(int k_changed, const Placement& curr_placement) {
-        debug_count++;
+        //debug_count++;
         const auto& musicians = m_problem.musicians;
         const auto& attendees = m_problem.attendees;
         const auto& placements = m_solution.placements;
@@ -269,7 +358,7 @@ public:
         m_solution.placements[k_changed] = curr_placement;
 
         m_score += score_gain;
-        { // debug
+        if (false) { // debug
             auto naive_score = compute_score(m_problem, m_solution);
             if (m_score != naive_score) {
                 DUMP(debug_count, m_score, naive_score);
@@ -294,7 +383,7 @@ public:
         assert(m_solution == other.m_solution);
         assert(m_score_k_i == other.m_score_k_i);
         assert(m_block == other.m_block);
-        // assert(m_score == other.m_score);
+        assert(m_score == other.m_score);
     }
 
     int64_t full_compute(const Solution& solution) {
