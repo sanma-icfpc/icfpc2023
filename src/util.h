@@ -185,6 +185,19 @@ inline std::optional<int> guess_problem_id(std::string some_file_path) {
     return std::nullopt;
 }
 
+struct Extension {
+    const bool consider_pillars = false; // Full Division, Extension 1: Obstacles in the Room
+    const bool consider_harmony = false; // Full Division, Extension 2: Playing Together
+    static Extension from_problem_id(int problem_id) {
+        if (problem_id <= 55) {
+            return Extension {false, false};
+        }
+        return Extension {true, true};
+    }
+    static Extension lightning() { return Extension {false, false}; }
+    static Extension full() { return Extension {true, true}; }
+};
+
 // still has some bugs..
 struct CachedComputeScore {
 public:
@@ -339,48 +352,30 @@ inline bool is_valid_solution(const Problem& problem, const Solution& solution, 
     return valid;
 }
 
-#ifdef _PPL_H
-inline int64_t compute_score_ppl(const Problem& problem, const Solution& solution) {
+inline int64_t compute_score(const Problem& problem, const Solution& solution, const Extension& extension = Extension::lightning()) {
 
     const auto& musicians = problem.musicians;
     const auto& attendees = problem.attendees;
+    const auto& pillars = problem.pillars;
     const auto& placements = solution.placements;
 
-    concurrency::combinable<int64_t> score;
-    concurrency::parallel_for(0, (int)musicians.size(), [&](int k) {
-        int t = problem.musicians[k];
-        double mx = placements[k].x, my = placements[k].y;
-        for (int i = 0; i < attendees.size(); i++) {
-            double ax = attendees[i].x, ay = attendees[i].y;
-            bool blocked = false;
+    std::vector<double> harmony;
+    if (extension.consider_harmony) {
+        harmony.assign(musicians.size(), 1.0);
+#pragma omp parallel for
+        for (int k = 0; k < musicians.size(); k++) {
+            int t = musicians[k];
             for (int kk = 0; kk < musicians.size(); kk++) {
-                double cx = placements[kk].x, cy = placements[kk].y;
-                if (is_intersect(cx, cy, 5.0, mx, my, ax, ay)) {
-                    blocked = true;
-                    break;
+                int tt = musicians[kk];
+                if (k != kk && t == tt) {
+                    harmony[k] += std::sqrt(1.0 / distance_squared(placements[k], placements[kk]));
                 }
             }
-            if (blocked) continue;
-            double d2 = (ax - mx) * (ax - mx) + (ay - my) * (ay - my);
-            double taste = attendees[i].tastes[t];
-            score.local() += (int64_t)ceil(1e6 * taste / d2);
         }
-        });
-
-    return score.combine(std::plus<int64_t>());
-
-}
-#endif
-inline int64_t compute_score_omp(const Problem& problem, const Solution& solution) {
-
-    const auto& musicians = problem.musicians;
-    const auto& attendees = problem.attendees;
-    const auto& placements = solution.placements;
+    }
 
     int64_t score = 0;
-#ifdef _OPENMP
 #pragma omp parallel for
-#endif
     for (int k = 0; k < musicians.size(); k++) {
         int t = problem.musicians[k];
         double mx = placements[k].x, my = placements[k].y;
@@ -394,27 +389,29 @@ inline int64_t compute_score_omp(const Problem& problem, const Solution& solutio
                     break;
                 }
             }
+            if (extension.consider_pillars) {
+                for (int p = 0; p < pillars.size(); p++) {
+                    if (is_intersect(pillars[p], pillars[p].r, placements[k], attendees[i])) {
+                        blocked = true;
+                        break;
+                    }
+                }
+            }
             if (blocked) continue;
             double d2 = (ax - mx) * (ax - mx) + (ay - my) * (ay - my);
             double taste = attendees[i].tastes[t];
-#ifdef _OPENMP
 #pragma omp critical(crit_sct)
-#endif
             {
-                score += (int64_t)ceil(1e6 * taste / d2);
+                if (extension.consider_harmony) {
+                    score += harmony[k] * (int64_t)ceil(1e6 * taste / d2);
+                } else {
+                    score += (int64_t)ceil(1e6 * taste / d2);
+                }
             }
         }
     }
 
     return score;
-
-}
-inline int64_t compute_score(const Problem& problem, const Solution& solution) {
-#ifdef _PPL_H
-    return compute_score_ppl(problem, solution);
-#else
-    return compute_score_omp(problem, solution);
-#endif
 }
 
 struct SegmentMap : public std::map<double, double> {
