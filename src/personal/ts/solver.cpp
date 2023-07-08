@@ -25,25 +25,28 @@ Solution create_trivial_solution(const Problem& problem) {
 }
 
 struct Changeset {
-    std::array<int, 2> swapped_placements;
-    void undo(Solution& solution) const {
-        const int i = swapped_placements[0];
-        const int j = swapped_placements[1];
+    int i = -1;
+    int j = -1;
+    Placement i_before, i_after;
+    Placement j_before, j_after;
+    void apply(Solution& solution) const {
         std::swap(solution.placements[i], solution.placements[j]);
     }
+    void unapply(Solution& solution) const {
+        std::swap(solution.placements[i], solution.placements[j]);
+    }
+    static Changeset sample_random_mutation(const Problem& problem, Xorshift& rnd, Solution& solution) {
+        const size_t N = solution.placements.size();
+        const int i = rnd.next_int() % N;
+        const int j = (i + 1 + rnd.next_int() % (N - 1)) % N;
+        LOG_ASSERT(0 <= i && i < N && 0 <= j && j < N && i != j);
+
+        return Changeset { i, j, 
+            solution.placements[i], solution.placements[j],
+            solution.placements[j], solution.placements[i],
+        };
+    }
 };
-Changeset do_random_mutation(const Problem& problem, Xorshift& rnd, Solution& solution) {
-    const size_t N = solution.placements.size();
-    const int i = rnd.next_int() % N;
-    const int j = (i + 1 + rnd.next_int() % (N - 1)) % N;
-
-    std::swap(solution.placements[i], solution.placements[j]);
-
-    Changeset changeset;
-    changeset.swapped_placements[0] = i;
-    changeset.swapped_placements[1] = j;
-    return changeset;
-}
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
 
@@ -65,23 +68,33 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     double input_score = compute_score(problem, input_solution);
     DUMP(input_score);
 
-    Xorshift rnd;
+    Xorshift rnd(42);
     Solution best_solution = input_solution;
-    Solution current_solution = input_solution;
+
+    CachedComputeScore cache(problem);
+    cache.full_compute(best_solution);
+
     double best_score = input_score;
     int loop = 0;
     while (timer.elapsed_ms() < 10000) {
         loop++;
-        auto changeset = do_random_mutation(problem, rnd, best_solution);
-        double score = compute_score(problem, best_solution);
+        auto changeset = Changeset::sample_random_mutation(problem, rnd, best_solution);
+        cache.change_musician(changeset.i, changeset.i_after);
+        cache.change_musician(changeset.j, changeset.j_after);
+        double score = cache.score();
         if (chmax(best_score, score)) {
+            changeset.apply(best_solution);
             DUMP(loop, best_score);
         } else {
-            changeset.undo(best_solution);
+            cache.change_musician(changeset.i, changeset.i_before);
+            cache.change_musician(changeset.j, changeset.j_before);
         }
     }
     DUMP(loop);
     DUMP(best_score);
+
+    // verify
+    DUMP(compute_score(problem, best_solution));
 
     if (best_score > 0) {
         std::ofstream ofs(format("../personal/ts/solutions/solution-%d.json", problem_id));

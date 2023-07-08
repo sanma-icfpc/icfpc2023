@@ -76,6 +76,41 @@ inline double is_intersect(double cx, double cy, double r, double x1, double y1,
     return 0 <= f0 && 0 <= f1 && -a <= b && b <= 0 && a * c <= b * b;
 }
 
+inline std::optional<Solution> create_random_solution(const Problem& problem, Xorshift& rnd, double timelimit = 1000) {
+
+    Timer timer;
+
+    constexpr double eps = 1e-8;
+    constexpr double margin = 10.0 + eps;
+    double bb_left = problem.stage_x + margin;
+    double bb_right = problem.stage_x + problem.stage_w - margin;
+    double bb_bottom = problem.stage_y + margin;
+    double bb_top = problem.stage_y + problem.stage_h - margin;
+
+    std::vector<Placement> placements;
+    
+    while (timer.elapsed_ms() < timelimit && placements.size() < problem.musicians.size()) {
+        double x = bb_left + (bb_right - bb_left) * rnd.next_double();
+        double y = bb_bottom + (bb_top - bb_bottom) * rnd.next_double();
+        bool overlap = false;
+        for (const auto& [px, py] : placements) {
+            if ((x - px) * (x - px) + (y - py) * (y - py) < margin * margin) {
+                overlap = true;
+                break;
+            }
+        }
+        if (overlap) continue;
+        placements.emplace_back(x, y);
+    }
+
+    if (placements.size() < problem.musicians.size()) return std::nullopt;
+
+    Solution solution;
+    solution.placements = placements;
+    return solution;
+
+}
+
 inline std::optional<int> guess_problem_id(std::string some_file_path) {
     std::regex pattern(".*-(\\d+)");
     std::smatch matches;
@@ -93,8 +128,127 @@ inline std::optional<int> guess_problem_id(std::string some_file_path) {
     return std::nullopt;
 }
 
+// still has some bugs..
+struct CachedComputeScore {
+public:
+    const Problem& m_problem;
+    const int m_num_attendees;
+    const int m_num_musicians;
+    Solution m_solution;
+private:
+    std::vector<int64_t> m_score_k_i;
+    std::vector<uint8_t> m_block;
+    int64_t m_score;
+public:
+    CachedComputeScore(const Problem& problem)
+     : m_problem(problem)
+     , m_num_attendees(problem.attendees.size())
+     , m_num_musicians(problem.musicians.size())
+     , m_score_k_i(problem.attendees.size() * problem.musicians.size(), 0)
+     , m_block(problem.attendees.size() * problem.musicians.size() * problem.musicians.size(), 0) {
+    }
+
+    int64_t& partial_score(int k, int i) { return m_score_k_i[k * m_num_attendees + i]; }
+    int64_t partial_score(int k, int i) const { return m_score_k_i[k * m_num_attendees + i]; }
+    // k's ray to i is blocked by kk
+    uint8_t& partial_block(int k, int kk, int i) { return m_block[(k * m_num_musicians + kk) * m_num_attendees + i]; }
+    uint8_t partial_block(int k, int kk, int i) const { return m_block[(k * m_num_musicians + kk) * m_num_attendees + i]; } 
+    int64_t score() const { return m_score; }
+
+    int64_t change_musician(int k_changed, const Placement& curr_placement) {
+        const auto& musicians = m_problem.musicians;
+        const auto& attendees = m_problem.attendees;
+        const auto& placements = m_solution.placements;
+
+        int64_t score_gain = 0;
+        { // score that musician k_changed offers.
+            int t = m_problem.musicians[k_changed];
+            double mx = curr_placement.x, my = curr_placement.y;
+            for (int i = 0; i < attendees.size(); i++) {
+                double ax = attendees[i].x, ay = attendees[i].y;
+                bool blocked = false;
+                bool prev_blocked = false;
+                for (int kk = 0; kk < musicians.size(); kk++) {
+                    if (k_changed == kk) continue;
+                    if (partial_block(k_changed, kk, i)) {
+                        prev_blocked = true;
+                    }
+                    double cx = placements[kk].x, cy = placements[kk].y;
+                    if (is_intersect(cx, cy, 5.0, mx, my, ax, ay)) {
+                        blocked = true;
+                        partial_block(k_changed, kk, i) = true;
+                    } else {
+                        partial_block(k_changed, kk, i) = false;
+                    }
+                }
+                double d2 = (ax - mx) * (ax - mx) + (ay - my) * (ay - my);
+                double taste = attendees[i].tastes[t];
+                int64_t prev = partial_score(k_changed, i);
+                int64_t curr = (int64_t)ceil(1e6 * taste / d2);
+                score_gain += (blocked ? 0 : curr) - (prev_blocked ? 0 : prev);
+                partial_score(k_changed, i) = curr;
+            }
+        }
+
+        // score that musician k_changed blocks/unblocks k -> i.
+        for (int k = 0; k < musicians.size(); k++) {
+            if (k == k_changed) continue;
+            int t = m_problem.musicians[k];
+            double mx = placements[k].x, my = placements[k].y;
+            for (int i = 0; i < attendees.size(); i++) {
+                double ax = attendees[i].x, ay = attendees[i].y;
+                bool blocked = is_intersect(curr_placement.x, curr_placement.y, 5.0, mx, my, ax, ay);
+                double taste = attendees[i].tastes[t];
+                int64_t prev = partial_score(k, i);
+                score_gain += (blocked ? 0 : prev) - (partial_block(k, k_changed, i) ? 0 : prev);
+                partial_block(k, k_changed, i) = blocked;
+            }
+        }
+
+        // update musician.
+        m_solution.placements[k_changed] = curr_placement;
+
+        m_score += score_gain;
+        return score_gain;
+    }
+
+    int64_t full_compute(const Solution& solution) {
+        m_solution = solution;
+        const auto& musicians = m_problem.musicians;
+        const auto& attendees = m_problem.attendees;
+        const auto& placements = solution.placements;
+
+        m_score = 0;
+        m_score_k_i.assign(m_score_k_i.size(), 0);
+        m_block.assign(m_block.size(), 0);
+
+        for (int k = 0; k < musicians.size(); k++) {
+            int t = m_problem.musicians[k];
+            double mx = placements[k].x, my = placements[k].y;
+            for (int i = 0; i < attendees.size(); i++) {
+                double ax = attendees[i].x, ay = attendees[i].y;
+                bool blocked = false;
+                for (int kk = 0; kk < musicians.size(); kk++) {
+                    double cx = placements[kk].x, cy = placements[kk].y;
+                    if (k != kk && is_intersect(cx, cy, 5.0, mx, my, ax, ay)) {
+                        blocked = true;
+                        partial_block(k, kk, i) = true;
+                    }
+                }
+                double d2 = (ax - mx) * (ax - mx) + (ay - my) * (ay - my);
+                double taste = attendees[i].tastes[t];
+                int64_t curr = (int64_t)ceil(1e6 * taste / d2);
+                m_score += blocked ? 0 : curr;
+                partial_score(k, i) = curr;
+            }
+        }
+
+        return m_score;
+    }
+};
+
 #ifdef _PPL_H
-int64_t compute_score(const Problem& problem, const Solution& solution) {
+inline int64_t compute_score(const Problem& problem, const Solution& solution) {
 
     const auto& musicians = problem.musicians;
     const auto& attendees = problem.attendees;
@@ -125,7 +279,7 @@ int64_t compute_score(const Problem& problem, const Solution& solution) {
 
 }
 #else
-int64_t compute_score(const Problem& problem, const Solution& solution) {
+inline int64_t compute_score(const Problem& problem, const Solution& solution) {
 
     const auto& musicians = problem.musicians;
     const auto& attendees = problem.attendees;
@@ -141,7 +295,7 @@ int64_t compute_score(const Problem& problem, const Solution& solution) {
             bool blocked = false;
             for (int kk = 0; kk < musicians.size(); kk++) {
                 double cx = placements[kk].x, cy = placements[kk].y;
-                if (is_intersect(cx, cy, 5.0, mx, my, ax, ay)) {
+                if (k != kk && is_intersect(cx, cy, 5.0, mx, my, ax, ay)) {
                     blocked = true;
                     break;
                 }
