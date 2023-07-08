@@ -13,6 +13,18 @@
 #include <glog/logging.h>
 #include "spec.h"
 
+void wait_for_debugger() {
+#ifdef _MSC_VER
+    while (!IsDebuggerPresent()) {
+        LOG(WARNING) << "waiting...";
+        Sleep(1000);
+    }
+    ::DebugBreak();
+#else
+    LOG(WARNING) << "windows only";
+#endif
+}
+
 template<typename T> bool chmax(T& a, const T& b) { if (a < b) { a = b; return true; } return false; }
 template<typename T> bool chmin(T& a, const T& b) { if (a > b) { a = b; return true; } return false; }
 template<typename T> T SQ(const T& x) { return x * x; }
