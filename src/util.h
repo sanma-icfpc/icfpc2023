@@ -321,6 +321,19 @@ inline bool is_valid_solution(const Problem& problem, const Solution& solution, 
                     std::sqrt(distance_squared(solution.placements[k], solution.placements[kk]))));
         }
     }
+
+    if (problem.extension.consider_pillars) {
+        for (int i = 0; i < problem.attendees.size(); i++) {
+            for (int p = 0; p < problem.pillars.size(); p++) {
+                CHECK_VALID(distance_squared(problem.attendees[i], problem.pillars[p]) > problem.pillars[p].r * problem.pillars[p].r,
+                    format("attendee is inside a pillar: %d (%f, %f) .. %d (%f, %f, %f) (distance = %f)",
+                        i, problem.attendees[i].x, problem.attendees[i].y,
+                        p, problem.pillars[p].x, problem.pillars[p].y, problem.pillars[p].r, 
+                        std::sqrt(distance_squared(problem.attendees[i], problem.pillars[p]))));
+            }
+        }
+    }
+
 #undef CHECK_VALID
     if (verbose) {
         LOG(INFO) << "solution is valid";
