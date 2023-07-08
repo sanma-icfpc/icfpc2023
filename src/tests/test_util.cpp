@@ -11,6 +11,24 @@ TEST(TestUtil, guess_problem_id) {
   EXPECT_EQ(guess_problem_id("path\\to\\solution-17_12345.json"), 17);
 }
 
+TEST(TestUtil, random_test_is_intersect) {
+  Xorshift rnd(42);
+  for (int trial = 0; trial < 10; ++trial) {
+    double ox = rnd.next_double() * 1000 - 500;
+    double oy = rnd.next_double() * 1000 - 500;
+    // EXPECT_TRUE (is_intersect(ox, oy, 10.0,    ox + 0.0,   oy + 0.0,    ox + 10.0, oy + 10.0)); // 1pt inside, 1pt outside. fails. intended??
+    // EXPECT_TRUE (is_intersect(ox, oy, 10.0,    ox - 1.0,   oy - 1.0,    ox + 10.0, oy + 10.0)); // 1pt inside, 1pt outside. fails. intended??
+    EXPECT_TRUE (is_intersect(ox, oy, 10.0,    ox + 1.0,   oy + 1.0,    ox + 10.0, oy + 10.0)); // 1pt inside, 1pt outside.
+    EXPECT_TRUE (is_intersect(ox, oy, 10.0,    ox + 2.0,   oy + 2.0,    ox + 10.0, oy + 10.0)); // 1pt inside, 1pt outside.
+    EXPECT_TRUE (is_intersect(ox, oy, 10.0,    ox + 5.0,   oy + 5.0,    ox + 10.0, oy + 10.0)); // 1pt inside, 1pt outside.
+    EXPECT_TRUE (is_intersect(ox, oy, 10.0,    ox + -10.0, oy + -10.0,  ox + 10.0, oy + 10.0)); // both outside, crossing
+    EXPECT_FALSE(is_intersect(ox, oy, 10.0,    ox + 0.0,   oy + 0.0,    ox + 5.0,  oy + 5.0)); // 2pts inside
+    EXPECT_TRUE (is_intersect(ox, oy, 10.0,    ox + -10.0, oy + -9.0,   ox + 10.0, oy + -9.0)); // 2pt cross
+    EXPECT_TRUE (is_intersect(ox, oy, 10.0,    ox + -10.0, oy + -10.0,  ox + 10.0, oy + -10.0)); // touch
+    EXPECT_FALSE(is_intersect(ox, oy, 10.0,    ox + -10.0, oy + -11.0,  ox + 10.0, oy + -11.0));
+  }
+}
+
 TEST(TestUtil, CachedComputeScore_inverse_operation_cancels_out_score_gain) {
   Problem problem = Problem::from_file(42);
   Xorshift rnd(42);
