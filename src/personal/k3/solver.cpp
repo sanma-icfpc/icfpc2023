@@ -116,7 +116,7 @@ void solve(int problem_id) {
 
     Problem problem(data);
 
-#ifdef _PPL_H
+#if defined(_PPL_H) || defined(_OPENMP)
     constexpr int concurrency_coeff = 1;
 #else
     constexpr int concurrency_coeff = 10;

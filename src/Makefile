@@ -70,7 +70,7 @@ TARGETS+=tssolver
 
 GTEST_SRCS=$(GTEST_DIR)/src/gtest-all.cc $(GTEST_DIR)/src/gtest_main.cc
 TEST_BUILD_PATH=build/tests
-TEST_CXXFLAGS=-I$(GTEST_DIR) -I$(GTEST_DIR)/include
+TEST_CXXFLAGS=-I$(GTEST_DIR) -I$(GTEST_DIR)/include -fopenmp
 TEST_LDFLAGS=$(LDFLAGS) -lpthread
 TEST_SRCS=$(wildcard tests/*.cpp) $(SRCS)
 TEST_OBJS=$(TEST_SRCS:%.cpp=$(BUILD_PATH)/%.o)

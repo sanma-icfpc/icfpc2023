@@ -1,6 +1,8 @@
 #pragma once
 #ifdef _MSC_VER
 #include <ppl.h>
+#elif _OPENMP
+#include <omp.h>
 #endif
 #include <iostream>
 #include <climits>
@@ -287,7 +289,9 @@ inline int64_t compute_score(const Problem& problem, const Solution& solution) {
     const auto& placements = solution.placements;
 
     int64_t score = 0;
-
+#ifdef _OPENMP
+#pragma omp parallel for
+#endif
     for (int k = 0; k < musicians.size(); k++) {
         int t = problem.musicians[k];
         double mx = placements[k].x, my = placements[k].y;
@@ -304,7 +308,12 @@ inline int64_t compute_score(const Problem& problem, const Solution& solution) {
             if (blocked) continue;
             double d2 = (ax - mx) * (ax - mx) + (ay - my) * (ay - my);
             double taste = attendees[i].tastes[t];
-            score += (int64_t)ceil(1e6 * taste / d2);
+#ifdef _OPENMP
+#pragma omp critical(crit_sct)
+#endif
+            {
+                score += (int64_t)ceil(1e6 * taste / d2);
+            }
         }
     }
 
