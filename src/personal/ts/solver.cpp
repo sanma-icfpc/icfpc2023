@@ -207,6 +207,41 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
         }
         DUMP(loop, best_score, accept, reject);
     }
+    if (method == "ILS") {
+        int loop = 0;
+        double t = 0.0;
+        double t_max = 10000.0;
+        Solution current_solution = best_solution;
+        int accept = 0, reject = 0;
+        while ((t = timer.elapsed_ms()) < t_max) {
+            // LS
+            for (int ls = 0; ls < 100 && timer.elapsed_ms() < t_max; ++ls) {
+                loop++;
+                auto changeset = Changeset::sample_random_motion(problem, rnd, current_solution);
+                auto gain = cache.change_musician(changeset.i, changeset.i_after);
+                int64_t score = cache.score();
+                if (chmax(best_score, score)) {
+                    changeset.apply(current_solution);
+                    best_solution = current_solution;
+                    ++accept;
+                    DUMP("LS", loop, best_score, accept, reject);
+                } else {
+                    ++reject;
+                    if (changeset.i >= 0) cache.change_musician(changeset.i, changeset.i_before);
+                }
+            }
+            { // kick
+                loop++;
+                auto changeset = Changeset::sample_random_mutation(problem, rnd, current_solution);
+                cache.change_musician(changeset.i, changeset.i_after);
+                cache.change_musician(changeset.j, changeset.j_after);
+                changeset.apply(current_solution);
+                ++accept;
+                DUMP("kick", loop, best_score, accept, reject);
+            }
+        }
+        DUMP(loop, best_score, accept, reject);
+    }
 
     // verify
     int64_t final_score = compute_score(problem, best_solution);
