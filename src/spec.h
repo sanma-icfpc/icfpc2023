@@ -24,6 +24,16 @@ struct Attendee {
         return res;
     }
 
+    bool operator==(const Attendee& rhs) const {
+        if (x != rhs.x) return false;
+        if (y != rhs.y) return false;
+        if (tastes != rhs.tastes) return false;
+        return true;
+    }
+    bool operator!=(const Attendee& rhs) const {
+        return !(*this == rhs);
+    }
+
 };
 
 struct Problem {
@@ -36,6 +46,21 @@ struct Problem {
     double stage_y;
     std::vector<int> musicians;
     std::vector<Attendee> attendees;
+
+    bool operator==(const Problem& rhs) const {
+        if (room_width != rhs.room_width) return false;
+        if (room_height != rhs.room_height) return false;
+        if (stage_w != rhs.stage_w) return false;
+        if (stage_h != rhs.stage_h) return false;
+        if (stage_x != rhs.stage_x) return false;
+        if (stage_y != rhs.stage_y) return false;
+        if (musicians != rhs.musicians) return false;
+        if (attendees != rhs.attendees) return false;
+        return true;
+    }
+    bool operator!=(const Problem& rhs) const {
+        return !(*this == rhs);
+    }
 
     Problem(const nlohmann::json& data) {
         room_width = data["room_width"];
@@ -111,6 +136,13 @@ struct Placement {
 
     std::string stringify() const { return "(" + std::to_string(x) + ", " + std::to_string(y) + ")"; }
 
+    bool operator==(const Placement& rhs) const {
+        return x == rhs.x && y == rhs.y;
+    }
+    bool operator!=(const Placement& rhs) const {
+        return !(*this == rhs);
+    }
+
 };
 
 struct Solution {
@@ -158,5 +190,12 @@ struct Solution {
         return img;
     }
 #endif
+
+    bool operator==(const Solution& rhs) const {
+        return placements == rhs.placements;
+    }
+    bool operator!=(const Solution& rhs) const {
+        return !(*this == rhs);
+    }
 
 };

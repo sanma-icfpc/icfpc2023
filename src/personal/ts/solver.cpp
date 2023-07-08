@@ -137,24 +137,28 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
 #endif
 
     Problem problem = Problem::from_file(problem_id);
+    DUMP(problem.musicians.size(), problem.attendees.size());
+
     Solution input_solution = Solution::from_file(solution_path);
     int64_t input_score = compute_score(problem, input_solution);
-    DUMP(input_score);
 
     Xorshift rnd(42);
     Solution best_solution = input_solution;
 
-    const int num_force_reset_iter = 3000;
+    const int num_force_reset_iter = 100000;
     CachedComputeScore cache(problem);
     cache.full_compute(best_solution);
     int64_t best_score = input_score;
-
+    DUMP(input_score, cache.score());
 
     if (method == "HILLCLIMB") {
         int loop = 0;
         while (timer.elapsed_ms() < t_max) {
             loop++;
-            if (num_force_reset_iter > 0 &&  loop % num_force_reset_iter == 0) cache.full_compute(best_solution);
+            if (num_force_reset_iter > 0 &&  loop % num_force_reset_iter == 0) {
+                cache.full_compute(best_solution);
+                best_score = cache.score();
+            }
             auto changeset = Changeset::sample_random_mutation(problem, rnd, best_solution);
             cache.change_musician(changeset.i, changeset.i_after);
             cache.change_musician(changeset.j, changeset.j_after);
@@ -180,7 +184,10 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
         while ((t = timer.elapsed_ms()) < t_max) {
             const double T = T_stop + (T_start - T_stop) * (1.0 - t / t_max);
             loop++;
-            if (num_force_reset_iter > 0 &&  loop % num_force_reset_iter == 0) cache.full_compute(best_solution);
+            if (num_force_reset_iter > 0 &&  loop % num_force_reset_iter == 0) {
+                cache.full_compute(best_solution);
+                best_score = cache.score();
+            }
             Changeset changeset;
             int64_t gain = 0;
             double action = rnd.next_double();

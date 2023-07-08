@@ -173,6 +173,9 @@ inline std::optional<int> guess_problem_id(std::string some_file_path) {
     return std::nullopt;
 }
 
+int debug_count = 0;
+inline int64_t compute_score(const Problem& problem, const Solution& solution);
+
 // still has some bugs..
 struct CachedComputeScore {
 public:
@@ -213,6 +216,7 @@ public:
     int64_t score() const { return m_score; }
 
     int64_t change_musician(int k_changed, const Placement& curr_placement) {
+        debug_count++;
         const auto& musicians = m_problem.musicians;
         const auto& attendees = m_problem.attendees;
         const auto& placements = m_solution.placements;
@@ -265,7 +269,32 @@ public:
         m_solution.placements[k_changed] = curr_placement;
 
         m_score += score_gain;
+        { // debug
+            auto naive_score = compute_score(m_problem, m_solution);
+            if (m_score != naive_score) {
+                DUMP(debug_count, m_score, naive_score);
+
+                auto cloned(*this);
+                cloned.full_compute(m_solution);
+                DUMP(m_score, cloned.m_score);
+                check_equality(cloned);
+            }
+            // assert(m_score == naive_score);
+            
+            // 差分計算によって得られる m_score_k_i, m_block と full_compute によって得られるそれは同一
+            // m_score のみ異なっていそう 
+        }
         return score_gain;
+    }
+
+    void check_equality(const CachedComputeScore& other) const {
+        assert(m_problem == other.m_problem);
+        assert(m_num_attendees == other.m_num_attendees);
+        assert(m_num_musicians == other.m_num_musicians);
+        assert(m_solution == other.m_solution);
+        assert(m_score_k_i == other.m_score_k_i);
+        assert(m_block == other.m_block);
+        // assert(m_score == other.m_score);
     }
 
     int64_t full_compute(const Solution& solution) {
@@ -327,38 +356,6 @@ inline bool is_valid_solution(const Problem& problem, const Solution& solution, 
     return valid;
 }
 
-#ifdef _PPL_H
-inline int64_t compute_score(const Problem& problem, const Solution& solution) {
-
-    const auto& musicians = problem.musicians;
-    const auto& attendees = problem.attendees;
-    const auto& placements = solution.placements;
-
-    concurrency::combinable<int64_t> score;
-    concurrency::parallel_for(0, (int)musicians.size(), [&](int k) {
-        int t = problem.musicians[k];
-        double mx = placements[k].x, my = placements[k].y;
-        for (int i = 0; i < attendees.size(); i++) {
-            double ax = attendees[i].x, ay = attendees[i].y;
-            bool blocked = false;
-            for (int kk = 0; kk < musicians.size(); kk++) {
-                double cx = placements[kk].x, cy = placements[kk].y;
-                if (is_intersect(cx, cy, 5.0, mx, my, ax, ay)) {
-                    blocked = true;
-                    break;
-                }
-            }
-            if (blocked) continue;
-            double d2 = (ax - mx) * (ax - mx) + (ay - my) * (ay - my);
-            double taste = attendees[i].tastes[t];
-            score.local() += (int64_t)ceil(1e6 * taste / d2);
-        }
-        });
-
-    return score.combine(std::plus<int64_t>());
-
-}
-#else
 inline int64_t compute_score(const Problem& problem, const Solution& solution) {
 
     const auto& musicians = problem.musicians;
@@ -366,9 +363,7 @@ inline int64_t compute_score(const Problem& problem, const Solution& solution) {
     const auto& placements = solution.placements;
 
     int64_t score = 0;
-#ifdef _OPENMP
 #pragma omp parallel for
-#endif
     for (int k = 0; k < musicians.size(); k++) {
         int t = problem.musicians[k];
         double mx = placements[k].x, my = placements[k].y;
@@ -385,9 +380,7 @@ inline int64_t compute_score(const Problem& problem, const Solution& solution) {
             if (blocked) continue;
             double d2 = (ax - mx) * (ax - mx) + (ay - my) * (ay - my);
             double taste = attendees[i].tastes[t];
-#ifdef _OPENMP
 #pragma omp critical(crit_sct)
-#endif
             {
                 score += (int64_t)ceil(1e6 * taste / d2);
             }
@@ -397,7 +390,6 @@ inline int64_t compute_score(const Problem& problem, const Solution& solution) {
     return score;
 
 }
-#endif
 
 struct SegmentMap : public std::map<double, double> {
 
