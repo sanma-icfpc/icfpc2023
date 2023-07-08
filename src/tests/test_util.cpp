@@ -3,7 +3,6 @@
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 
-#include "../k3common.h"
 #include "../util.h"
 
 TEST(TestUtil, guess_problem_id) {
