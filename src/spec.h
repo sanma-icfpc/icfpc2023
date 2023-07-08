@@ -7,6 +7,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
+#include <optional>
 
 static constexpr int k_musician_radius = 5;
 static constexpr int k_musician_spacing_radius = 10;
