@@ -40,15 +40,6 @@ struct Changeset {
             break;
         }
     }
-    //void unapply(Solution& solution) const {
-    //    switch (change_type) {
-    //        case 0:
-    //        std::swap(solution.placements[i], solution.placements[j]);
-    //        break;
-    //        case 1:
-    //        break;
-    //    }
-    //}
     static Changeset sample_random_mutation(const Problem& problem, Xorshift& rnd, Solution& solution) {
         const size_t N = solution.placements.size();
         const int i = rnd.next_int() % N;
@@ -59,6 +50,35 @@ struct Changeset {
             solution.placements[i], solution.placements[j],
             solution.placements[j], solution.placements[i],
         };
+    }
+    static Changeset sample_random_delta(const Problem& problem, Xorshift& rnd, Solution& solution) {
+        const size_t N = solution.placements.size();
+        const int i = rnd.next_int() % N;
+
+        Changeset chg { 1, i, -1, 
+            solution.placements[i], solution.placements[i], 
+            {0.0, 0.0}, {0.0, 0.0},
+        };
+
+        for (int retry = 0; retry < 100; ++retry) {
+            Placement placement = solution.placements[i];
+            placement.x += rnd.next_double() * 3.0;
+            placement.y += rnd.next_double() * 3.0;
+            if (!is_musician_on_stage(problem, placement)) continue;
+            bool conflict = false;
+            for (int kk = 0; kk < solution.placements.size(); ++kk) {
+                if (i != kk) {
+                    if (are_musicians_too_close(solution.placements[kk], placement)) {
+                        conflict = true;
+                        break;
+                    }
+                }
+            }
+            if (conflict) continue;
+            chg.i_after = placement;
+        }
+
+        return chg;
     }
     static Changeset sample_random_motion(const Problem& problem, Xorshift& rnd, Solution& solution) {
         const size_t N = solution.placements.size();
@@ -155,9 +175,13 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
             loop++;
             Changeset changeset;
             int64_t gain = 0;
-            if (rnd.next_double() < 0) {
+            double action = rnd.next_double();
+            if (action < 0.0) {
                 changeset = Changeset::sample_random_mutation(problem, rnd, current_solution);
                 gain = cache.change_musician(changeset.i, changeset.i_after) + cache.change_musician(changeset.j, changeset.j_after);
+            } else if (action < 0.0) {
+                changeset = Changeset::sample_random_delta(problem, rnd, current_solution);
+                gain = cache.change_musician(changeset.i, changeset.i_after);
             } else {
                 changeset = Changeset::sample_random_motion(problem, rnd, current_solution);
                 gain = cache.change_musician(changeset.i, changeset.i_after);
@@ -169,14 +193,12 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
                 best_solution = current_solution;
                 ++accept;
                 DUMP(loop, best_score, accept, reject);
-                DUMP(t / t_max, T, gain, p);
             } else {
+                // DUMP(t / t_max, T, gain, p);
                 if (gain > 0 || rnd.next_double() < p) {
-                    // accept
                     ++accept;
                     changeset.apply(current_solution);
                 } else {
-                    // reject
                     ++reject;
                     if (changeset.i >= 0) cache.change_musician(changeset.i, changeset.i_before);
                     if (changeset.j >= 0) cache.change_musician(changeset.j, changeset.j_before);

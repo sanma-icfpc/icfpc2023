@@ -106,6 +106,11 @@ inline double distance_squared(const T1& p1, const T2& p2) {
     return SQ(p1.x - p2.x) + SQ(p1.y - p2.y);
 }
 
+inline bool is_musician_on_stage(const Problem& problem, const Placement& p) {
+    return problem.stage_x <= p.x && p.x <= problem.stage_x + problem.stage_w
+        && problem.stage_y <= p.y && p.y <= problem.stage_y + problem.stage_h;
+}
+
 inline bool are_musicians_too_close(const Placement& p1, const Placement& p2, double eps_margin_for_safty = 1e-3) {
     // To ensure they have enough room for playing, they must not
     // have any other musician or an edge of the stage in a circle of radius 10 centered
@@ -187,11 +192,23 @@ public:
      , m_block(problem.attendees.size() * problem.musicians.size() * problem.musicians.size(), 0) {
     }
 
-    int64_t& partial_score(int k, int i) { return m_score_k_i[k * m_num_attendees + i]; }
-    int64_t partial_score(int k, int i) const { return m_score_k_i[k * m_num_attendees + i]; }
+    int64_t& partial_score(int k, int i) {
+#if 0
+        LOG_ASSERT(0 <= k && k < m_num_musicians);
+        LOG_ASSERT(0 <= i && i < m_num_attendees);
+#endif
+        return m_score_k_i[k * m_num_attendees + i];
+    }
     // k's ray to i is blocked by kk
-    uint8_t& partial_block(int k, int kk, int i) { return m_block[(k * m_num_musicians + kk) * m_num_attendees + i]; }
-    uint8_t partial_block(int k, int kk, int i) const { return m_block[(k * m_num_musicians + kk) * m_num_attendees + i]; } 
+    uint8_t& partial_block(int k, int kk, int i) {
+#if 0
+        LOG_ASSERT(0 <= k && k < m_num_musicians);
+        LOG_ASSERT(0 <= kk && kk < m_num_musicians);
+        LOG_ASSERT(k != kk); // not illegal but strange.
+        LOG_ASSERT(0 <= i && i < m_num_attendees);
+#endif
+        return m_block[(k * m_num_musicians + kk) * m_num_attendees + i];
+    }
     int64_t score() const { return m_score; }
 
     int64_t change_musician(int k_changed, const Placement& curr_placement) {
