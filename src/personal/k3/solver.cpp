@@ -84,236 +84,6 @@ template<typename T, typename ...Args> auto make_vector(T x, int arg, Args ...ar
 
 
 
-Solution create_trivial_solution(const Problem& problem) {
-
-    double width = problem.stage_w;
-    double height = problem.stage_h;
-    int ncols = (int)floor((width - 10.0) / 10.0);
-    int nrows = (int)floor((height - 10.0) / 10.0);
-
-    Solution solution;
-
-    for (int row = 0; row < nrows; row++) {
-        double y = problem.stage_y + row * 10.0 + 10.0;
-        for (int col = 0; col < ncols; col++) {
-            int id = row * ncols + col;
-            if (id >= problem.musicians.size()) continue;
-            double x = problem.stage_x + col * 10.0 + 10.0;
-            solution.placements.emplace_back(x, y);
-        }
-    }
-
-    return solution;
-
-}
-
-struct State {
-
-    using Pos = Placement;
-
-    static constexpr int MM = 1536; // max musician size: 1484 (problem 33)
-
-    Problem m_problem;
-    const int m_num_musicians;
-    const int m_num_attendees;
-
-    std::vector<std::vector<std::bitset<MM>>> m_block;
-    std::vector<std::vector<int>> m_block_ctr;
-
-    int64_t m_score;
-
-    std::bitset<MM> m_placed;
-    std::array<Pos, MM> m_pos;
-
-    // block[sk][i][tk]: sk と i を結ぶ線分と tk 中心の円が交差するか？
-        // sk から i が見える条件: block[sk][i][:] が false
-
-        // k を削除
-        // 1. for sk in K\{k}: for i in I: block[sk][i][k] = false
-        // 2. block[k][:][:] = false
-
-        // k を追加
-        // 1. for sk in K\{k}: for i in I: block[sk][i][k] = (交差判定)
-        // 2. for i in I: for tk in K\{k}: block[k][i][tk] = (交差判定)
-
-        // block_ctr[sk][i]: block[sk][i][:] のうち true であるものの個数
-        // block_ctr[sk][i] が 0 とそれ以外を行き来する際に gain の変化が生じるはず
-
-    State(const Problem& problem)
-        : m_problem(problem)
-        , m_num_musicians(problem.musicians.size())
-        , m_num_attendees(problem.attendees.size())
-        , m_block(m_num_musicians, std::vector<std::bitset<MM>>(m_num_attendees))
-        , m_block_ctr(m_num_musicians, std::vector<int>(m_num_attendees))
-        , m_score(0) {
-
-        m_placed.reset();
-        std::fill(m_pos.begin(), m_pos.begin() + m_num_musicians, Pos(-1e9, -1e9));
-    }
-
-    int64_t full_compute(const Solution& solution) {
-        const auto& as = m_problem.attendees;
-        auto pos = solution.placements;
-        std::copy(pos.begin(), pos.end(), m_pos.begin());
-        std::vector<int64_t> score_k(m_num_musicians);
-#pragma omp parallel for
-        for (int sk = 0; sk < m_num_musicians; sk++) {
-            m_placed[sk] = true;
-            int st = m_problem.musicians[sk];
-            for (int i = 0; i < m_num_attendees; i++) {
-                for (int tk = 0; tk < m_num_musicians; tk++) {
-                    if (sk == tk || !is_intersect(m_pos[tk], k_musician_radius, m_pos[sk], as[i])) continue;
-                    m_block[sk][i][tk] = true;
-                    m_block_ctr[sk][i]++;
-                }
-                if (!m_block_ctr[sk][i]) {
-                    double d2 = distance_squared(m_pos[sk], as[i]);
-                    double taste = as[i].tastes[st];
-                    score_k[sk] += (int64_t)ceil(1e6 * taste / d2);
-                }
-            }
-        }
-        return m_score = std::accumulate(score_k.begin(), score_k.end(), 0LL);
-    }
-
-    int64_t push(int k, const Pos& kpos) {
-
-        const auto& ms = m_problem.musicians;
-        const auto& as = m_problem.attendees;
-
-        std::vector<int64_t> gain_k(m_num_musicians);
-        std::vector<int64_t> gain_i(m_num_attendees);
-
-#pragma omp parallel for
-        for (int sk = 0; sk < m_num_musicians; sk++) {
-            if (!m_placed[sk]) continue;
-            for (int i = 0; i < m_num_attendees; i++) {
-                bool blocked = is_intersect(kpos, k_musician_radius, m_pos[sk], as[i]);
-                if (blocked) {
-                    m_block[sk][i][k] = true;
-                    if (!m_block_ctr[sk][i]) {
-                        auto taste = as[i].tastes[ms[sk]];
-                        auto d2 = distance_squared(m_pos[sk], as[i]);
-                        gain_k[sk] -= (int64_t)ceil(1e6 * taste / d2);
-                    }
-                    m_block_ctr[sk][i]++;
-                }
-            }
-        }
-
-#pragma omp parallel for
-        for (int i = 0; i < m_num_attendees; i++) {
-            for (int tk = 0; tk < m_num_musicians; tk++) {
-                if (!m_placed[tk]) continue;
-                bool blocked = is_intersect(m_pos[tk], k_musician_radius, kpos, as[i]);
-                if (blocked) {
-                    m_block[k][i][tk] = true;
-                    m_block_ctr[k][i]++;
-                }
-            }
-            if (!m_block_ctr[k][i]) {
-                auto taste = as[i].tastes[ms[k]];
-                auto d2 = distance_squared(kpos, as[i]);
-                gain_i[i] += (int64_t)ceil(1e6 * taste / d2);
-            }
-        }
-
-        auto gain
-            = std::accumulate(gain_k.begin(), gain_k.end(), 0LL)
-            + std::accumulate(gain_i.begin(), gain_i.end(), 0LL);
-
-        m_placed[k] = true;
-        m_pos[k] = kpos;
-        m_score += gain;
-
-        return gain;
-    }
-
-    int64_t pop(int k) {
-        
-        const auto& ms = m_problem.musicians;
-        const auto& as = m_problem.attendees;
-
-        std::vector<int64_t> gain_k(m_num_musicians);
-        std::vector<int64_t> gain_i(m_num_attendees);
-
-#pragma omp parallel for
-        for (int sk = 0; sk < m_num_musicians; sk++) {
-            if (!m_placed[sk]) continue;
-            for (int i = 0; i < m_num_attendees; i++) {
-                if (m_block[sk][i][k]) {
-                    m_block[sk][i][k] = false;
-                    m_block_ctr[sk][i]--;
-                    if (!m_block_ctr[sk][i]) {
-                        auto taste = as[i].tastes[ms[sk]];
-                        auto d2 = distance_squared(m_pos[sk], as[i]);
-                        gain_k[sk] += (int64_t)ceil(1e6 * taste / d2);
-                    }
-                }
-            }
-        }
-
-#pragma omp parallel for
-        for (int i = 0; i < m_num_attendees; i++) {
-            m_block[k][i].reset();
-            if (!m_block_ctr[k][i]) {
-                auto taste = as[i].tastes[ms[k]];
-                auto d2 = distance_squared(m_pos[k], as[i]);
-                gain_i[i] -= (int64_t)ceil(1e6 * taste / d2);
-            }
-            m_block_ctr[k][i] = 0;
-        }
-
-        auto gain
-            = std::accumulate(gain_k.begin(), gain_k.end(), 0LL)
-            + std::accumulate(gain_i.begin(), gain_i.end(), 0LL);
-        
-        m_placed[k] = false;
-        m_pos[k] = { -1e9, -1e9 };
-        m_score += gain;
-
-        return gain;
-    }
-
-    bool can_move(int k, const Pos& kpos) const {
-        if (!is_musician_on_stage(m_problem, kpos)) return false;
-        for (int kk = 0; kk < m_num_musicians; kk++) {
-            if (!m_placed[kk] || k == kk) continue;
-            if (are_musicians_too_close(kpos, m_pos[kk], 0)) return false;
-        }
-        return true;
-    }
-
-    int64_t move(int k, const Pos& kpos) {
-        auto gain = pop(k);
-        gain += push(k, kpos);
-        return gain;
-    }
-
-    int64_t swap(int k1, int k2) {
-        auto p1 = m_pos[k1], p2 = m_pos[k2];
-        auto gain = pop(k1);
-        gain += pop(k2);
-        gain += push(k1, p2);
-        gain += push(k2, p1);
-        return gain;
-    }
-
-    Pos sample_random_pos(Xorshift& rnd) const {
-        return {
-            m_problem.stage_x + k_musician_spacing_radius + rnd.next_double() * (m_problem.stage_w - k_musician_spacing_radius * 2),
-            m_problem.stage_y + k_musician_spacing_radius + rnd.next_double() * (m_problem.stage_h - k_musician_spacing_radius * 2)
-        };
-    }
-
-    Solution to_solution() const {
-        Solution sol;
-        sol.placements = std::vector<Pos>(m_pos.begin(), m_pos.begin() + m_num_musicians);
-        return sol;
-    }
-
-};
-
 #if 1
 inline double get_temp(double stemp, double etemp, double t, double T) {
     return etemp + (stemp - etemp) * (T - t) / T;
@@ -324,13 +94,12 @@ inline double get_temp(double stemp, double etemp, double t, double T) {
 };
 #endif
 
-void solve_anneal(int problem_id) {
+void anneal_after_volume_change(int problem_id) {
     Timer timer;
 
     std::string in_file = format("../data/problems/problem-%d.json", problem_id);
-    //std::string sol_file = format("../data/solutions/bests/solution-%d.json", problem_id);
-    std::string sol_file;
-    std::string out_file_format = "../data/solutions/bests/solution-%d.json";
+    std::string sol_file = format("../data/solutions/bests/solution-%d.json", problem_id);
+    std::string out_file_format = "../data/solutions/k3_v05_anneal_after_volume_change/solution-%d.json";
     nlohmann::json data;
     {
         std::ifstream ifs(in_file);
@@ -347,24 +116,10 @@ void solve_anneal(int problem_id) {
         ofs << sol.to_json().dump(4);
     };
 
-    auto sol = *create_random_solution(problem, rnd);
-    if (!sol_file.empty()) {
-        sol = Solution::from_file(sol_file);
-    }
-    else {
-        int loop_random = 0;
-        auto best_score = compute_score(problem, sol);
-        while (timer.elapsed_ms() < 3000) {
-            loop_random++;
-            auto nsol = create_random_solution(problem, rnd);
-            if (!nsol) continue;
-            auto score = compute_score(problem, *nsol);
-            if (chmax(best_score, score)) {
-                sol = *nsol;
-                DUMP(loop_random, best_score);
-            }
-        }
-    }
+    auto sol = Solution::from_file(sol_file);
+    DUMP(compute_score(problem, sol));
+    set_optimal_volumes(problem, sol, 1.0);
+    DUMP(compute_score(problem, sol));
 
     CachedComputeScore cache(problem);
     cache.full_compute(sol);
@@ -373,8 +128,8 @@ void solve_anneal(int problem_id) {
     double dump_interval = 1000.0;
     double save_interval = 10000.0;
     double start_time = timer.elapsed_ms(), now_time = start_time, end_time = 60000;
-    double next_dump_time = now_time;
-    double next_save_time = now_time;
+    double next_dump_time = start_time + dump_interval;
+    double next_save_time = start_time + save_interval;
     bool save_mode = false;
     while ((now_time = timer.elapsed_ms()) < end_time) {
         loop++;
@@ -407,56 +162,6 @@ void solve_anneal(int problem_id) {
     save(sol, problem_id, score);
 }
 
-void solve(int problem_id) {
-    Timer timer;
-
-    std::string in_file = format("../data/problems/problem-%d.json", problem_id);
-    std::string sol_file = format("../data/solutions/bests/solution-%d.json", problem_id);
-
-    if (!std::filesystem::exists(sol_file)) return;
-
-    std::string out_file_format = "../data/solutions/k3_v05_opt_volumes/solution-%d_sub=%lld.json";
-    nlohmann::json data;
-    {
-        std::ifstream ifs(in_file);
-        ifs >> data;
-    }
-
-    Problem problem(data);
-
-    Xorshift rnd;
-
-    auto save = [&](const Solution& sol, int problem_id, int64_t score) {
-        std::string out_file = format(out_file_format, problem_id, score);
-        std::ofstream ofs(out_file);
-        ofs << sol.to_json().dump(4);
-    };
-
-    auto sol = *create_random_solution(problem, rnd);
-    if (!sol_file.empty()) {
-        sol = Solution::from_file(sol_file);
-    }
-    else {
-        int loop_random = 0;
-        auto best_score = compute_score(problem, sol);
-        while (timer.elapsed_ms() < 3000) {
-            loop_random++;
-            auto nsol = create_random_solution(problem, rnd);
-            if (!nsol) continue;
-            auto score = compute_score(problem, *nsol);
-            if (chmax(best_score, score)) {
-                sol = *nsol;
-                DUMP(loop_random, best_score);
-            }
-        }
-    }
-
-    auto prev_score = compute_score(problem, sol);
-    set_optimal_volumes(problem, sol);
-    auto curr_score = compute_score(problem, sol);
-    auto diff = curr_score - prev_score;
-    LOG(INFO) << format("problem_id=%2d, prev_score=%12lld, curr_score=%12lld, diff=%12lld", problem_id, prev_score, curr_score, diff);
-}
 
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
@@ -465,7 +170,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     cv::utils::logging::setLogLevel(cv::utils::logging::LogLevel::LOG_LEVEL_SILENT);
 #endif
 
-    solve_anneal(16);
+    anneal_after_volume_change(15);
 
     return 0;
 }

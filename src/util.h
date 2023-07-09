@@ -704,10 +704,10 @@ inline std::vector<int64_t> compute_score_each_musician(const Problem& problem, 
     return scores;
 }
 
-void set_optimal_volumes(const Problem& problem, Solution& solution) {
+void set_optimal_volumes(const Problem& problem, Solution& solution, double amplitude = 10.0) {
     auto scores = compute_score_each_musician(problem, solution);
     for (int musician_id = 0; musician_id < problem.musicians.size(); musician_id++) {
-        solution.volumes[musician_id] = scores[musician_id] < 0 ? 0.0 : 10.0;
+        solution.volumes[musician_id] = scores[musician_id] <= 0 ? 0.0 : amplitude;
     }
 }
 
