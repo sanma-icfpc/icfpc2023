@@ -40,6 +40,7 @@ struct Changeset {
     int j = -1;
     Placement i_before, i_after;
     Placement j_before, j_after;
+    double volume_before, volume_after;
     void apply(Solution& solution) const {
         switch (change_type) {
             case 0:
@@ -48,7 +49,17 @@ struct Changeset {
             case 1:
             solution.placements[i] = i_after;
             break;
+            case 2:
+            solution.volumes[i] = volume_after;
+            break;
         }
+    }
+    static Changeset sample_random_volume(const Problem& problem, Xorshift& rnd, const Solution& solution) {
+        const size_t N = solution.placements.size();
+        const int i = rnd.next_int() % N;
+        return Changeset { 2, i, -1, 
+            {}, {}, {}, {},
+            solution.volumes[i], solution.volumes[i] > 0.5 ? 0.2 : 1.0}; // flip
     }
     static Changeset sample_random_mutation(const Problem& problem, Xorshift& rnd, const Solution& solution) {
         const size_t N = solution.placements.size();
@@ -164,6 +175,9 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     if (input_solution.placements.empty()) {
         LOG(WARNING) << "provided a problem file. starting from a random state.";
         input_solution = *create_random_solution(problem, rnd);
+    }
+    if (input_solution.volumes.empty()) {
+        input_solution.set_default_volumes();
     }
     int64_t input_score = compute_score(problem, input_solution);
     DUMP(input_score);
@@ -331,8 +345,8 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     }
     if (method == "SA") {
         cache.m_compute_affected = false;
-        double T_start = best_score * 0.01;
-        double T_stop = best_score * 0.0001;
+        double T_start = std::abs(best_score) * 0.01;
+        double T_stop = std::abs(best_score) * 0.0001;
         double t = 0.0;
         Solution current_solution = best_solution;
         while ((t = timer.elapsed_ms()) < t_max) {
@@ -355,7 +369,10 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
             } else if (action < 0.0) {
                 changeset = Changeset::sample_random_delta(problem, rnd, current_solution, 5.0);
                 gain = cache.change_musician(changeset.i, changeset.i_after);
-            } else if (action < 0.1) {
+            } else if (action < 0.01) {
+                changeset = Changeset::sample_random_volume(problem, rnd, current_solution);
+                gain = cache.change_musician_volume(changeset.i, changeset.volume_after);
+            } else if (action < 0.05) {
                 changeset = Changeset::sample_random_motion(problem, rnd, current_solution);
                 gain = cache.change_musician(changeset.i, changeset.i_after);
             } else {
@@ -375,14 +392,29 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
                     changeset.apply(current_solution);
                 } else {
                     ++reject;
-                    if (changeset.i >= 0) cache.change_musician(changeset.i, changeset.i_before);
-                    if (changeset.j >= 0) cache.change_musician(changeset.j, changeset.j_before);
+                    if (changeset.change_type <= 1) {
+                        if (changeset.i >= 0) cache.change_musician(changeset.i, changeset.i_before);
+                        if (changeset.j >= 0) cache.change_musician(changeset.j, changeset.j_before);
+                    } 
+                    if (changeset.change_type == 2) {
+                        if (changeset.i >= 0) cache.change_musician_volume(changeset.i, changeset.volume_before);
+                    } 
                 }
                 if (loop % 1000 == 0) {
                     LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "current":%lld, "accept":%d, "reject":%d, "T":%f})", loop, best_score, score, accept, reject, T);
                 }
             }
         }
+        std::cout << "Volumes:";
+        for (int k = 0; k < best_solution.volumes.size(); ++k) {
+            std::cout << best_solution.volumes[k] << " ";
+            if (best_solution.volumes[k] < 0.5) {
+                best_solution.volumes[k] = 0.0;
+            } else {
+                best_solution.volumes[k] = 1.0; // to be compatible.
+            }
+        }
+        std::cout << std::endl;
         DUMP(loop, best_score, accept, reject);
     }
     if (method == "ILS") {
