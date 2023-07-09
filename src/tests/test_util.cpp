@@ -79,12 +79,15 @@ TEST(TestUtil, CachedComputeScore_ConsistentWithReferenceScoreDuringRandomChange
   }
 }
 
-TEST(TestUtil, DISABLED_CachedComputeScore_ConsistentWithReferenceScoreDuringRandomChangeWithPillars) {
+TEST(TestUtil, CachedComputeScore_ConsistentWithReferenceScoreDuringRandomChangeWithPillars) {
   Problem problem = Problem::from_file("../data/test_data/problem-85-mod-no-harmony.json");
+  problem.extension.consider_pillars = true;
+  problem.extension.consider_harmony = false;
   Xorshift rnd(42);
   Solution solution = *create_random_solution(problem, rnd);
   const int M = solution.placements.size();
   LOG(INFO) << "Pillars: " << problem.pillars.size();
+  LOG(INFO) << problem.extension.stringify();
 
   CachedComputeScore cache(problem);
   cache.full_compute(solution);
@@ -96,7 +99,7 @@ TEST(TestUtil, DISABLED_CachedComputeScore_ConsistentWithReferenceScoreDuringRan
     EXPECT_TRUE(bool(new_placement_opt)); // 99% sure..
     EXPECT_NE(cache.change_musician(i, *new_placement_opt), 0); // 99% sure..
     const int64_t score_reference = compute_score(problem, cache.m_solution);
-    EXPECT_NEAR(cache.score(), score_reference, score_reference * 1e-3);
+    EXPECT_NEAR(cache.score(), score_reference, std::abs(score_reference) * 1e-4);
   }
 }
 
@@ -120,7 +123,7 @@ TEST(TestUtil, CachedComputeScore_ConsistentWithReferenceScoreDuringRandomChange
     EXPECT_TRUE(bool(new_placement_opt)); // 99% sure..
     EXPECT_NE(cache.change_musician(i, *new_placement_opt), 0); // 99% sure..
     const int64_t score_reference = compute_score(problem, cache.m_solution);
-    EXPECT_NEAR(cache.score(), score_reference, score_reference * 1e-2);
+    EXPECT_NEAR(cache.score(), score_reference, std::abs(score_reference) * 1e-2);
     {
       CachedComputeScore cache_ref(problem);
       cache_ref.full_compute(cache.m_solution);
@@ -131,14 +134,16 @@ TEST(TestUtil, CachedComputeScore_ConsistentWithReferenceScoreDuringRandomChange
   }
 }
 
-TEST(TestUtil, DISABLED_CachedComputeScore_ConsistentWithReferenceScoreDuringRandomChangeFullDivision) {
+TEST(TestUtil, CachedComputeScore_ConsistentWithReferenceScoreDuringRandomChangeFullDivision) {
   Problem problem = Problem::from_file("../data/problems/problem-85.json");
+  LOG(INFO) << problem.extension.stringify();
   Xorshift rnd(42);
   Solution solution = *create_random_solution(problem, rnd);
   const int M = solution.placements.size();
 
   CachedComputeScore cache(problem);
   cache.full_compute(solution);
+  EXPECT_EQ(cache.score(), compute_score(problem, solution));
 
   for (int loop = 0; loop < 100; ++loop) {
     const int i = rnd.next_int() % M;
@@ -146,7 +151,7 @@ TEST(TestUtil, DISABLED_CachedComputeScore_ConsistentWithReferenceScoreDuringRan
     EXPECT_TRUE(bool(new_placement_opt)); // 99% sure..
     EXPECT_NE(cache.change_musician(i, *new_placement_opt), 0); // 99% sure..
     const int64_t score_reference = compute_score(problem, cache.m_solution);
-    EXPECT_EQ(cache.score(), score_reference);
+    EXPECT_NEAR(cache.score(), score_reference, std::abs(score_reference) * 1e-2);
   }
 }
 

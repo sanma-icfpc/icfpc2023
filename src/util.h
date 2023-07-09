@@ -289,7 +289,7 @@ struct CachedComputeScore {
       : m_problem(problem),
         m_num_attendees(problem.attendees.size()),
         m_num_musicians(problem.musicians.size()),
-        m_num_pillars(problem.extension.consider_pillars ? 0 : problem.pillars.size()),
+        m_num_pillars(problem.extension.consider_pillars ? problem.pillars.size() : 0),
         m_harmony_cache(m_num_musicians, 1.0),
         m_score_cache(problem.attendees.size() * problem.musicians.size(), 0),
         m_audible_cache(problem.attendees.size() * problem.musicians.size() * problem.musicians.size(), 1),
