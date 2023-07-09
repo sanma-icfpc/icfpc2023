@@ -295,6 +295,13 @@ struct CachedComputeScore {
   double get_mean_elapsed_ms_full() const {
     return m_accum_elapsed_ms_full / (m_call_count_full + 1e-9);
   }
+  void report() const {
+    LOG(INFO) << format("PID=%d: full calculation %.4f ms/eval (%d evals), partial update %.4f ms/eval (%d evals)",
+      m_problem.problem_id,
+      get_mean_elapsed_ms_full(), m_call_count_full,
+      get_mean_elapsed_ms_partial(), m_call_count_partial);
+  }
+
 
  public:
   CachedComputeScore(const Problem& problem)
@@ -431,6 +438,9 @@ struct CachedComputeScore {
     const auto& attendees = m_problem.attendees;
     const auto& placements = solution.placements;
     const auto& pillars = m_problem.pillars;
+    const int M = musicians.size();
+    const int A = attendees.size();
+    const int P = pillars.size();
 
     m_score = 0;
     m_score_cache.assign(m_score_cache.size(), 0);
@@ -440,7 +450,7 @@ struct CachedComputeScore {
 
     if (m_problem.extension.consider_harmony) {
 #pragma omp parallel for
-      for (int k = 0; k < musicians.size(); k++) {
+      for (int k = 0; k < M; k++) {
         double harmony = 0.0;
         for (auto k_other : std::views::iota(0, m_num_musicians)) {
           if (k != k_other && musicians[k] == musicians[k_other]) {
@@ -451,7 +461,8 @@ struct CachedComputeScore {
       }
     }
 
-    for (auto k_src : std::views::iota(0, m_num_musicians)) {
+#pragma omp parallel for reduction(+:m_score)
+    for (auto k_src = 0; k_src < M; ++k_src) {
       for (auto i : std::views::iota(0, m_num_attendees)) {
         for (auto k_other : std::views::iota(0, m_num_musicians)) {
           if (k_src != k_other) {
@@ -694,7 +705,7 @@ int64_t compute_score_fast(const Problem& problem, const Solution& solution) {
 
 nlohmann::json create_problem_stats(Problem& problem) {
   auto [room_width, room_height, stage_w, stage_h, stage_x, stage_y, musicians,
-        attendees, pillars, extension] = problem;
+        attendees, pillars, extension, problem_id] = problem;
   nlohmann::json stats;
   stats["topology"] = {
       {"room_width", room_width},

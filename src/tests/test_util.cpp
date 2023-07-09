@@ -78,7 +78,7 @@ TEST(TestUtil, CachedComputeScore_ConsistentWithReferenceScoreDuringRandomChange
     EXPECT_EQ(cache.score(), score_reference);
   }
 
-  LOG(INFO) << format("full calculation %.2f ms/eval, partial update %.2f ms/eval",
+  LOG(INFO) << format("full calculation %.4f ms/eval, partial update %.4f ms/eval",
     cache.get_mean_elapsed_ms_full(),
     cache.get_mean_elapsed_ms_partial());
 }
@@ -158,7 +158,7 @@ TEST(TestUtil, CachedComputeScore_ConsistentWithReferenceScoreDuringRandomChange
     EXPECT_NEAR(cache.score(), score_reference, std::abs(score_reference) * 1e-2);
   }
 
-  LOG(INFO) << format("full calculation %.2f ms/eval, partial update %.2f ms/eval",
+  LOG(INFO) << format("full calculation %.4f ms/eval, partial update %.4f ms/eval",
     cache.get_mean_elapsed_ms_full(),
     cache.get_mean_elapsed_ms_partial());
 }

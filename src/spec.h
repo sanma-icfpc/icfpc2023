@@ -80,6 +80,7 @@ struct Problem {
   std::vector<Attendee> attendees;
   std::vector<Pillar> pillars;
   Extension extension;
+  int problem_id = -1;
 
   Problem(const nlohmann::json& data) {
     room_width = data["room_width"];
@@ -125,9 +126,11 @@ struct Problem {
     Problem problem(data);
     if (auto problem_id_opt = guess_problem_id(path)) {
       problem.extension = Extension::from_problem_id(*problem_id_opt);
+      problem.problem_id = *problem_id_opt;
     } else {
       LOG(WARNING) << "Failed to guess problem ID! extension may be wrong. assuming full division..";
       problem.extension = Extension::full();
+      problem.problem_id = -1;
     }
     return problem;
   }
@@ -193,6 +196,10 @@ struct Solution {
 
   static Solution from_file(std::string path) {
     std::ifstream ifs(path.c_str());
+    if (!ifs.is_open()) {
+      return {};
+    }
+
     nlohmann::json data;
     ifs >> data;
 
