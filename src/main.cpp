@@ -5,13 +5,17 @@
 #include <omp.h>
 
 #ifdef USE_OPENCV
+#ifdef __GNUC__
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wdeprecated-enum-enum-conversion"
+#endif
 #include <opencv2/core.hpp>
 #include <opencv2/core/utils/logger.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/highgui.hpp>
+#ifdef __GNUC__
 #pragma GCC diagnostic pop
+#endif
 #endif
 
 #include "spec.h"

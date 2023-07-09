@@ -574,12 +574,12 @@ int64_t compute_score_fast(const Problem& problem, const Solution& solution) {
       double rad = atan2(my, mx);
       double drad = atan2(5.0, sqrt(d2 - 25.0));
       // DUMP(rad, drad);
-      //  rad が smap に含まれないなら block されない
+      //  if rad is included in smap, it is not blocked.
       if (!smap.included(rad)) {
         double taste = attendees[i].tastes[musicians[mid]];
         score += (int64_t)ceil(1e6 * taste / d2);
       }
-      // [rad-drad, rad+drad] を smap にマージ
+      // merge [rad-drad, rad+drad] into smap
       double left = rad - drad, right = rad + drad;
       if (left < -PI) {
         smap.insert(left + PI * 2, PI);
