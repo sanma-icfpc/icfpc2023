@@ -52,6 +52,18 @@ TEST(TestUtil, IsIntersect) {
   EXPECT_FALSE(is_intersect(0, 0, 10, 0, 0, 5, 5));
 }
 
+TEST(TestUtil, IsValidSolutionChecksVolume) {
+  Problem problem = Problem::from_file(42);
+  Solution solution = Solution::from_file(
+      "../data/solutions/k3_v01_random_creation/solution-42.json");
+  EXPECT_TRUE(is_valid_solution(problem, solution));
+  solution.volumes[0] = -1.0;
+  EXPECT_FALSE(is_valid_solution(problem, solution));
+  solution.volumes[0] = 1.0;
+  solution.volumes.pop_back();
+  EXPECT_FALSE(is_valid_solution(problem, solution));
+}
+
 TEST(TestUtil, CachedComputeScore_IdenticalChangeWillNotChangeScore) {
   Problem problem = Problem::from_file(42);
   Xorshift rnd(42);

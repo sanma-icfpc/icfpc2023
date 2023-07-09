@@ -554,6 +554,15 @@ inline bool is_valid_solution(const Problem& problem,
     }
   }
 
+  CHECK_VALID(solution.volumes.empty() || solution.volumes.size() == problem.musicians.size(),
+    format("invalid volumes of size %d where musicians are %d", solution.volumes.size(), problem.musicians.size()));
+  if (!solution.volumes.empty()) {
+    for (int i = 0; i < solution.volumes.size(); ++i) {
+      CHECK_VALID(0.0 <= solution.volumes[i] && solution.volumes[i] <= 10.0,
+        format("volume[%d] = %f out of range", i, solution.volumes[i]));
+    }
+  }
+
 #undef CHECK_VALID
   if (verbose) {
     LOG(INFO) << "solution is valid";
