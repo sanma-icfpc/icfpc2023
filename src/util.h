@@ -104,9 +104,9 @@ inline double is_intersect(double cx, double cy, double r, double x1, double y1,
     double dx = x2 - x1, dy = y2 - y1;
     double a = dx * dx + dy * dy, b = x1 * dx + y1 * dy, c = x1 * x1 + y1 * y1 - r * r;
     if (b * b - a * c < 0) return false;
-    double f0 = c, f1 = a * 2 * b + c;
+    double f0 = c, f1 = a + 2 * b + c;
     if (f0 * f1 <= 0) return true;
-    return 0 <= f0 && 0 <= f1 && -a <= b && b <= 0 && a * c <= b * b;
+    return 0 <= f0 && 0 <= f1 && -a <= b && b <= 0;
 }
 
 template <typename T1, typename T2, typename T3>
