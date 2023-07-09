@@ -350,13 +350,17 @@ struct CachedComputeScore {
     const auto& attendees = m_problem.attendees;
     const auto& placements = m_solution.placements;
     const auto& pillars = m_problem.pillars;
-    LOG_ASSERT(musicians.size() == placements.size());
+    const int M = musicians.size();
+    const int A = attendees.size();
+    const int P = pillars.size();
+    LOG_ASSERT(M == placements.size());
 
     // スコアの更新前に、ブロック状況の更新が必要(ブロックは新旧両方を同時に利用するため)
     // pillarはblocker_countに加味されているので特別扱いする必要は無い
     int64_t old_influence = 0;
     int64_t new_influence = 0;
-    for (auto k_src : std::views::iota(0, m_num_musicians)) {
+#pragma omp parallel for reduction(+:old_influence) reduction(+:new_influence)
+    for (auto k_src = 0; k_src < M; ++k_src) {
         if (k_changed == k_src) continue;
 
         double old_harmony = 0.0, new_harmony = 0.0;
@@ -368,7 +372,7 @@ struct CachedComputeScore {
           }
         }
 
-        for (auto i : std::views::iota(0, m_num_attendees)) {
+        for (auto i : std::views::iota(0, A)) {
             const bool old_audible = partial_audible(k_src, k_changed, i);
             const bool new_audible = !is_intersect(placements[k_changed], k_musician_radius, placements[k_src], attendees[i]);
             partial_audible(k_src, k_changed, i) = new_audible; // この二重ループでは全て独立
@@ -394,15 +398,16 @@ struct CachedComputeScore {
     const double new_harmony = m_harmony_cache[k_changed];
 
     // 移動したmusicianが得る効果の増減
-    for (auto i : std::views::iota(0, m_num_attendees)) {
+#pragma omp parallel for reduction(+:old_influence) reduction(+:new_influence)
+    for (auto i = 0; i < A; ++i) {
         const int64_t old_blocker_count = blocker_count(k_changed, i);
         int64_t new_blocker_count = 0;
-        for (auto k_other : std::views::iota(0, m_num_musicians)) {
+        for (auto k_other : std::views::iota(0, M)) {
             if (k_other == k_changed) continue;
             partial_audible(k_changed, k_other, i) = !is_intersect(placements[k_other], k_musician_radius, placements[k_changed], attendees[i]);
             if (!partial_audible(k_changed, k_other, i)) new_blocker_count++;
         }
-        for (auto p : std::views::iota(0, m_num_pillars)) {
+        for (auto p : std::views::iota(0, P)) {
           if (is_intersect(pillars[p], pillars[p].r, placements[k_changed], attendees[i])) {
             new_blocker_count++;
           }
@@ -452,7 +457,7 @@ struct CachedComputeScore {
 #pragma omp parallel for
       for (int k = 0; k < M; k++) {
         double harmony = 0.0;
-        for (auto k_other : std::views::iota(0, m_num_musicians)) {
+        for (auto k_other : std::views::iota(0, M)) {
           if (k != k_other && musicians[k] == musicians[k_other]) {
             harmony += inverse_distance(placements[k], placements[k_other]);
           }
@@ -463,8 +468,8 @@ struct CachedComputeScore {
 
 #pragma omp parallel for reduction(+:m_score)
     for (auto k_src = 0; k_src < M; ++k_src) {
-      for (auto i : std::views::iota(0, m_num_attendees)) {
-        for (auto k_other : std::views::iota(0, m_num_musicians)) {
+      for (auto i : std::views::iota(0, A)) {
+        for (auto k_other : std::views::iota(0, M)) {
           if (k_src != k_other) {
             partial_audible(k_src, k_other, i) = !is_intersect(placements[k_other], k_musician_radius, placements[k_src], attendees[i]);
             if (!partial_audible(k_src, k_other, i)) {
@@ -472,7 +477,7 @@ struct CachedComputeScore {
             }
           }
         }
-        for (auto p : std::views::iota(0, m_num_pillars)) {
+        for (auto p : std::views::iota(0, P)) {
           if (is_intersect(pillars[p], pillars[p].r, placements[k_src], attendees[i])) {
             blocker_count(k_src, i) += 1;
           }
