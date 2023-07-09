@@ -330,6 +330,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
         DUMP(best_score);
     }
     if (method == "SA") {
+        cache.m_compute_affected = false;
         double T_start = best_score * 0.01;
         double T_stop = best_score * 0.0001;
         double t = 0.0;
@@ -354,8 +355,11 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
             } else if (action < 0.0) {
                 changeset = Changeset::sample_random_delta(problem, rnd, current_solution, 5.0);
                 gain = cache.change_musician(changeset.i, changeset.i_after);
-            } else {
+            } else if (action < 0.1) {
                 changeset = Changeset::sample_random_motion(problem, rnd, current_solution);
+                gain = cache.change_musician(changeset.i, changeset.i_after);
+            } else {
+                changeset = Changeset::sample_random_motion(problem, rnd, current_solution, cache.sample_random_affected_musician(rnd));
                 gain = cache.change_musician(changeset.i, changeset.i_after);
             }
             const double p = std::exp(double(gain) / T);
