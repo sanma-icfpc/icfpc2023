@@ -1,5 +1,12 @@
 #include "util.h"
 
+#include <omp.h>
+#include <iostream>
+#include <optional>
+#include <ranges>
+#include <regex>
+#include <type_traits>
+
 void wait_for_debugger() {
 #ifdef _MSC_VER
   while (!IsDebuggerPresent()) {
@@ -65,59 +72,9 @@ CachedComputeScore::CachedComputeScore(const Problem& problem)
                       1),
       m_blocker_count_cache(problem.attendees.size() * problem.musicians.size(),
                             0) {}
-/*
-int64_t& partial_score(int k, int i) {
-#if 0
-        LOG_ASSERT(0 <= k && k < m_num_musicians);
-        LOG_ASSERT(0 <= i && i < m_num_attendees);
-#endif
-  return m_score_cache[k * m_num_attendees + i];
-}
-int16_t& blocker_count(int k, int i) {
-#if 0
-        LOG_ASSERT(0 <= k && k < m_num_musicians);
-        LOG_ASSERT(0 <= i && i < m_num_attendees);
-#endif
-  return m_blocker_count_cache[k * m_num_attendees + i];
-}
-// k_src's ray to i is audible by k_other
-uint8_t& partial_audible(int k_src, int k_other, int i) {
-#if 0
-        LOG_ASSERT(0 <= k_src && k_src < m_num_musicians);
-        LOG_ASSERT(0 <= k_other && k_other < m_num_musicians);
-        LOG_ASSERT(k_src != k_other); // not illegal but strange.
-        LOG_ASSERT(0 <= i && i < m_num_attendees);
-#endif
-  return m_audible_cache[(k_src * m_num_musicians + k_other) * m_num_attendees +
-                         i];
-}
-int64_t score() const {
-  return m_score;
-}
 
-int64_t change_musician_volume(int k_changed, double curr_volume) {
-  const auto& attendees = m_problem.attendees;
-  const int A = attendees.size();
-
-  const double prev_volume = m_solution.volumes[k_changed];
-  m_solution.volumes[k_changed] = curr_volume;
-
-  int64_t old_influence = 0;
-  int64_t new_influence = 0;
-  for (int i = 0; i < A; ++i) {
-    if (blocker_count(k_changed, i) == 0) {
-      const double qI =
-          (1.0 + m_harmony_cache[k_changed]) * partial_score(k_changed, i);
-      old_influence += (int64_t)std::ceil(prev_volume * qI);
-      new_influence += (int64_t)std::ceil(curr_volume * qI);
-    }
-  }
-  m_score += new_influence - old_influence;
-
-  return new_influence - old_influence;
-}
-
-int64_t change_musician(int k_changed, const Placement& curr_placement) {
+int64_t CachedComputeScore::change_musician(int k_changed,
+                                            const Placement& curr_placement) {
   Timer timer;
 
   const Placement prev_placement = m_solution.placements[k_changed];
@@ -137,8 +94,7 @@ int64_t change_musician(int k_changed, const Placement& curr_placement) {
     m_affected_musicians_indices.clear();
   }
 
-  //
-スコアの更新前に、ブロック状況の更新が必要(ブロックは新旧両方を同時に利用するため)
+  // スコアの更新前に、ブロック状況の更新が必要(ブロックは新旧両方を同時に利用するため)
   // pillarはblocker_countに加味されているので特別扱いする必要は無い
   int64_t old_influence = 0;
   int64_t new_influence = 0;
@@ -256,7 +212,30 @@ int64_t change_musician(int k_changed, const Placement& curr_placement) {
   return new_influence - old_influence;
 }
 
-int64_t full_compute(const Solution& solution) {
+int64_t CachedComputeScore::change_musician_volume(int k_changed,
+                                                   double curr_volume) {
+  const auto& attendees = m_problem.attendees;
+  const int A = attendees.size();
+
+  const double prev_volume = m_solution.volumes[k_changed];
+  m_solution.volumes[k_changed] = curr_volume;
+
+  int64_t old_influence = 0;
+  int64_t new_influence = 0;
+  for (int i = 0; i < A; ++i) {
+    if (blocker_count(k_changed, i) == 0) {
+      const double qI =
+          (1.0 + m_harmony_cache[k_changed]) * partial_score(k_changed, i);
+      old_influence += (int64_t)std::ceil(prev_volume * qI);
+      new_influence += (int64_t)std::ceil(curr_volume * qI);
+    }
+  }
+  m_score += new_influence - old_influence;
+
+  return new_influence - old_influence;
+}
+
+int64_t CachedComputeScore::full_compute(const Solution& solution) {
   Timer timer;
 
   m_solution = solution;
@@ -324,9 +303,6 @@ int64_t full_compute(const Solution& solution) {
   m_call_count_full += 1;
   return m_score;
 }
-}
-;
-*/
 
 bool is_valid_solution(const Problem& problem,
                        const Solution& solution,

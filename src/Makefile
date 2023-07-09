@@ -3,7 +3,7 @@ BUILD_PATH=build
 GTEST_DIR=$(LIB_PATH)/googletest/googletest
 
 CXXFLAGS+=-O2 -Wall -Wno-sign-compare -std=c++2a -march=native
-CXXFLAGS+=-Wno-unused-variable -Wno-unused-function
+CXXFLAGS+=-Wno-unused-variable -Wno-unused-function -Wno-deprecated-anon-enum-enum-conversion
 CXXFLAGS+=-I.
 CXXFLAGS+=-MMD -MP -fopenmp
 
