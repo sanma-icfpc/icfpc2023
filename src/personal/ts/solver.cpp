@@ -115,6 +115,14 @@ struct Changeset {
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
 
+  google::InitGoogleLogging(argv[0]);
+  google::InstallFailureSignalHandler();
+  google::SetStderrLogging(google::INFO);
+  google::SetLogDestination(google::INFO, "tssolver.log.");
+
+  std::ios::sync_with_stdio(false);
+  std::cin.tie(NULL);
+
     std::string solution_or_problem_path;
     std::string method = "SA";
     double t_max = 10000.0;
@@ -157,20 +165,31 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
 
     if (method == "HILLCLIMB") {
         int loop = 0;
+        int accept = 0, reject = 0;
         while (timer.elapsed_ms() < t_max) {
             loop++;
-            if (num_force_reset_iter > 0 &&  loop % num_force_reset_iter == 0) cache.full_compute(best_solution);
-            auto changeset = Changeset::sample_random_mutation(problem, rnd, best_solution);
-            cache.change_musician(changeset.i, changeset.i_after);
-            cache.change_musician(changeset.j, changeset.j_after);
+            if (num_force_reset_iter > 0 &&  loop % num_force_reset_iter == 0) {
+                best_score = cache.full_compute(best_solution);
+            }
+            Changeset changeset;
+            if (rnd.next_int() % 100 <= 1) {
+                changeset = Changeset::sample_random_mutation(problem, rnd, best_solution);
+                cache.change_musician(changeset.i, changeset.i_after);
+                cache.change_musician(changeset.j, changeset.j_after);
+            } else {
+                changeset = Changeset::sample_random_motion(problem, rnd, best_solution);
+                cache.change_musician(changeset.i, changeset.i_after);
+            }
             int64_t score = cache.score();
             if (chmax(best_score, score)) {
                 changeset.apply(best_solution);
-                DUMP(loop, best_score);
+                ++accept;
             } else {
-                cache.change_musician(changeset.i, changeset.i_before);
-                cache.change_musician(changeset.j, changeset.j_before);
+                if (changeset.i >= 0) cache.change_musician(changeset.i, changeset.i_before);
+                if (changeset.j >= 0) cache.change_musician(changeset.j, changeset.j_before);
+                ++reject;
             }
+            LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "accept":%d, "reject":%d})", loop, best_score, accept, reject);
         }
         DUMP(loop);
         DUMP(best_score);
