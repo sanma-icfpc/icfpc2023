@@ -57,4 +57,6 @@ if uploaded_file is not None:
         st.line_chart(df[['accept', 'reject']])
     if 'T' in df.columns:
         st.line_chart(df[['T']])
-
+    if 'adjust' in df.columns:
+        df['adjust'].fillna(0.0, inplace=True)
+        st.line_chart(df['adjust'])

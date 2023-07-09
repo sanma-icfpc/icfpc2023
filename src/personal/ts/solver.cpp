@@ -156,7 +156,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
 
     Solution best_solution = input_solution;
 
-    const int num_force_reset_iter = 3000;
+    const int num_force_reset_iter = 10000;
     CachedComputeScore cache(problem);
     cache.full_compute(best_solution);
     int64_t best_score = input_score;
@@ -202,12 +202,15 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
         Solution current_solution = best_solution;
         int accept = 0, reject = 0;
         while ((t = timer.elapsed_ms()) < t_max) {
-            const double T = T_stop + (T_start - T_stop) * (1.0 - t / t_max);
+            //const double T = T_stop + (T_start - T_stop) * (1.0 - t / t_max);
+            const double T = T_start * 1000 / (loop + 1);
             loop++;
             if (num_force_reset_iter > 0 &&  loop % num_force_reset_iter == 0) {
+                int64_t adjust_score = -best_score;
                 best_score = cache.full_compute(best_solution);
+                adjust_score += best_score;
                 int64_t score = cache.full_compute(current_solution);
-                LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "current":%lld, "accept":%d, "reject":%d, "T":%f})", loop, best_score, score, accept, reject, T);
+                LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "current":%lld, "accept":%d, "reject":%d, "T":%f, "adjust":%d})", loop, best_score, score, accept, reject, T, adjust_score);
             }
             Changeset changeset;
             int64_t gain = 0;
@@ -256,7 +259,6 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
             int64_t score = 0;
             for (int ls = 0; ls < 1000 && timer.elapsed_ms() < t_max; ++ls) {
                 loop++;
-                if (num_force_reset_iter > 0 && loop % num_force_reset_iter == 0) reset = true;
                 auto changeset = Changeset::sample_random_motion(problem, rnd, cache.m_solution);
                 auto gain = cache.change_musician(changeset.i, changeset.i_after);
                 score = cache.score();
@@ -271,12 +273,9 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
                     LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "current":%lld, "accept":%d, "reject":%d})", loop, best_score, score, accept, reject);
                 }
             }
-            { // kick
+            { // kick from the best (and it also resets the cumulative error)
                 LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "current":%lld, "accept":%d, "reject":%d})", loop, best_score, score, accept, reject);
-                if (reset) {
-                    best_score = cache.full_compute(best_solution);
-                    cache.full_compute(cache.m_solution);
-                }
+                best_score = cache.full_compute(best_solution);
                 //auto changeset = Changeset::sample_random_mutation(problem, rnd, cache.m_solution);
                 //cache.change_musician(changeset.i, changeset.i_after);
                 //cache.change_musician(changeset.j, changeset.j_after);
