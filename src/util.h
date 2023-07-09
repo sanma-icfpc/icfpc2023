@@ -455,15 +455,16 @@ inline int64_t compute_score(const Problem& problem, const Solution& solution) {
     for (int k = 0; k < musicians.size(); k++) {
       int instrument = musicians[k];
       auto&& p1 = placements[k];
-      for (int kk = k + 1; kk < musicians.size(); kk++) {
-        if (instrument == musicians[kk]) {
+      double harmonyk = 1;
+      for (int kk = 0; kk < musicians.size(); kk++) {
+        if (k != kk && instrument == musicians[kk]) {
           auto&& p2 = placements[kk];
           double distance = std::hypot(p1.x - p2.x, p1.y - p2.y);
           double q = 1.0 / distance;
-          harmony[k] += q;
-          harmony[kk] += q;
+          harmonyk += q;
         }
       }
+      harmony[k] = harmonyk;
     }
   }
 
