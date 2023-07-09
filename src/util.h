@@ -201,6 +201,29 @@ inline bool are_musicians_too_close(const Placement& p1,
          k_musician_spacing_radius * k_musician_spacing_radius;
 }
 
+inline std::optional<Placement> suggest_random_position(const Problem& problem, const Solution& solution, Xorshift& rnd, int i, int max_retry=100) {
+  for (int retry = 0; retry < max_retry; ++retry) {
+    Placement placement{
+        problem.stage_x + k_musician_spacing_radius + rnd.next_double() * (problem.stage_w - k_musician_spacing_radius * 2),
+        problem.stage_y + k_musician_spacing_radius + rnd.next_double() * (problem.stage_h - k_musician_spacing_radius * 2)};
+    if (!is_musician_on_stage(problem, placement))
+      continue;
+    bool conflict = false;
+    for (int kk = 0; kk < solution.placements.size(); ++kk) {
+      if (i != kk) {
+        if (are_musicians_too_close(solution.placements[kk], placement)) {
+          conflict = true;
+          break;
+        }
+      }
+    }
+    if (!conflict)
+      return placement;
+  }
+
+  return std::nullopt;
+}
+
 inline std::optional<Solution> create_random_solution(const Problem& problem,
                                                       Xorshift& rnd,
                                                       double timelimit = 1000) {
