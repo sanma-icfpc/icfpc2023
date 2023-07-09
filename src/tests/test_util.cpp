@@ -98,6 +98,47 @@ TEST(TestUtil, DISABLED_ExtensionsInComputeScoreFunction) {
   EXPECT_DOUBLE_EQ(score_naive_harmony, 5350.0);
 }
 
+TEST(TestUtil, ExtensionsInComputeScoreFunctionWithSimpleProblem) {
+  auto data = nlohmann::json::parse(R"({
+  "room_width": 1000.0,
+  "room_height": 1000.0,
+  "stage_width": 1000.0,
+  "stage_height": 200.0,
+  "stage_bottom_left": [ 0.0, 700.0 ],
+  "musicians": [0, 0],
+  "attendees": [
+    {
+      "x": 450.0,
+      "y": 450.0,
+      "tastes": [1.0]
+    }
+  ],
+  "pillars": [
+    { "center": [ 500.0, 500.0 ], "radius": 50.0 }
+  ]
+})");
+  Problem problem(data);
+  problem.extension = Extension::full();
+
+  Solution solution_blocked_by_pillar = {
+      .placements = {
+      {451.0, 700.0},
+      {700.0, 700.0},
+    },
+  };
+  EXPECT_NEAR(compute_score(problem, solution_blocked_by_pillar), 0.0, 1e-4);
+
+  Solution solution_audible = {
+      .placements = {
+      {449.0, 700.0},
+      {700.0, 700.0},
+    },
+  };
+  EXPECT_NEAR(compute_score(problem, solution_audible),
+   std::ceil((1.0 + 1.0 / (700 - 449.0)) * std::ceil(1e6 * 1.0 / SQ(700.0 - 450.0))),
+   1e-4);
+}
+
 TEST(TestUtil, test_compute_score_fast) {
   Problem problem = Problem::from_file(42);
   Xorshift rnd(42);
