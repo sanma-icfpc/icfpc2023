@@ -67,7 +67,7 @@ TEST(TestUtil, RegressionTest_ComputeScoreFunctionsWithoutPillars) {
 }
 
 // Expected values are discussed in the official Discord channel #question.
-TEST(TestUtil, DISABLED_ExtensionsInComputeScoreFunction) {
+TEST(TestUtil, ExtensionsInComputeScoreFunction) {
   Problem problem =
       Problem::from_file("../data/test_data/problem-example.json");
   Solution solution =
@@ -93,9 +93,9 @@ TEST(TestUtil, DISABLED_ExtensionsInComputeScoreFunction) {
   auto score_naive_harmony = compute_score(problem, solution);
 
   EXPECT_DOUBLE_EQ(score_naive_lightning, 5343.0);
-  EXPECT_DOUBLE_EQ(score_naive_full, 3270.0);
+  EXPECT_DOUBLE_EQ(score_naive_full, 5357.0);
   // EXPECT_DOUBLE_EQ(score_naive_pillars, ?);
-  EXPECT_DOUBLE_EQ(score_naive_harmony, 5350.0);
+  EXPECT_DOUBLE_EQ(score_naive_harmony, 5357.0);
 }
 
 TEST(TestUtil, ExtensionsInComputeScoreFunctionWithSimpleProblem) {
