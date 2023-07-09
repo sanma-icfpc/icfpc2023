@@ -284,6 +284,18 @@ struct CachedComputeScore {
   std::vector<int16_t> m_blocker_count_cache;
   int64_t m_score;
 
+  double m_accum_elapsed_ms_partial = 0.0;
+  int m_call_count_partial = 0;
+  double m_accum_elapsed_ms_full = 0.0;
+  int m_call_count_full = 0;
+
+  double get_mean_elapsed_ms_partial() const {
+    return m_accum_elapsed_ms_partial / (m_call_count_partial + 1e-9);
+  }
+  double get_mean_elapsed_ms_full() const {
+    return m_accum_elapsed_ms_full / (m_call_count_full + 1e-9);
+  }
+
  public:
   CachedComputeScore(const Problem& problem)
       : m_problem(problem),
@@ -323,6 +335,8 @@ struct CachedComputeScore {
   int64_t score() const { return m_score; }
 
   int64_t change_musician(int k_changed, const Placement& curr_placement) {
+    Timer timer;
+
     const Placement prev_placement = m_solution.placements[k_changed];
     m_solution.placements[k_changed] = curr_placement;
     const auto& musicians = m_problem.musicians;
@@ -393,10 +407,16 @@ struct CachedComputeScore {
     }
 
     m_score += new_influence - old_influence;
+
+    m_accum_elapsed_ms_partial += timer.elapsed_ms();
+    m_call_count_partial += 1;
+
     return new_influence - old_influence;
   }
 
   int64_t full_compute(const Solution& solution) {
+    Timer timer;
+
     static bool warned = false;
     if (!warned) {
       if (m_problem.extension != Extension::lightning()) {
@@ -453,6 +473,8 @@ struct CachedComputeScore {
       }
     }
 
+    m_accum_elapsed_ms_full += timer.elapsed_ms();
+    m_call_count_full += 1;
     return m_score;
   }
 };
