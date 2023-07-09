@@ -384,7 +384,7 @@ void solve(int problem_id) {
         auto new_placement_opt = suggest_random_position(problem, cache.m_solution, rnd, i);
         if (!new_placement_opt) continue;
         auto gain = cache.change_musician(i, *new_placement_opt);
-        double temp = get_temp(1e3, 1e1, now_time - start_time, end_time - start_time);
+        double temp = get_temp(1e4, 0, now_time - start_time, end_time - start_time);
         double prob = exp(gain / temp);
         if (rnd.next_double() > prob) {
             cache.change_musician(i, old_placement);
