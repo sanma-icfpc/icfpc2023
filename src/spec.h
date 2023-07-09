@@ -182,6 +182,11 @@ struct Placement {
 
 struct Solution {
   std::vector<Placement> placements;
+  std::vector<double> volumes;
+
+  void set_default_volumes() {
+      volumes.assign(placements.size(), 1.0);
+  }
 
   std::string stringify() const {
     if (placements.empty())
@@ -189,6 +194,10 @@ struct Solution {
     std::string res = "{" + placements[0].stringify();
     for (int i = 1; i < (int)placements.size(); i++) {
       res += ", " + placements[i].stringify();
+    }
+    res += "}, {" + std::to_string(volumes[0]);
+    for (int i = 1; i < (int)volumes.size(); i++) {
+      res += ", " + std::to_string(volumes[i]);
     }
     res += "}";
     return res;
@@ -207,6 +216,13 @@ struct Solution {
     for (const auto& placement : data["placements"]) {
       solution.placements.push_back({placement["x"], placement["y"]});
     }
+    if (data.contains("volumes")) {
+      for (const auto& volume : data["volumes"]) {
+        solution.volumes.push_back(volume);
+      }
+    } else {
+      solution.set_default_volumes();
+    }
     return solution;
   }
 
@@ -215,6 +231,15 @@ struct Solution {
     data["placements"] = {};
     for (const auto& [x, y] : placements) {
       data["placements"].push_back({{"x", x}, {"y", y}});
+    }
+    if (!volumes.empty()) {
+      if (volumes.size() != placements.size()) {
+        LOG(WARNING) << "volumes " << volumes.size() << " and placements " << placements.size() << " size mismatch!";
+      }
+      data["volumes"] = nlohmann::json::array();
+      for (const auto volume : volumes) {
+        data["volumes"].push_back(volume);
+      }
     }
     return data;
   }

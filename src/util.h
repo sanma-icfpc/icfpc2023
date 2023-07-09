@@ -278,6 +278,7 @@ inline std::optional<Solution> create_random_solution(const Problem& problem,
 
   Solution solution;
   solution.placements = placements;
+  solution.set_default_volumes();
   return solution;
 }
 
@@ -395,8 +396,8 @@ struct CachedComputeScore {
             if (!old_audible && new_audible) blocker_count(k_src, i) -= 1;
             const auto new_blocker_count = blocker_count(k_src, i);
 
-            old_influence += old_blocker_count == 0 ? (int64_t)std::ceil((1.0 + old_harmony) * partial_score(k_src, i)) : 0;
-            new_influence += new_blocker_count == 0 ? (int64_t)std::ceil((1.0 + new_harmony) * partial_score(k_src, i)) : 0;
+            old_influence += old_blocker_count == 0 ? (int64_t)std::ceil(m_solution.volumes[k_src] * (1.0 + old_harmony) * partial_score(k_src, i)) : 0;
+            new_influence += new_blocker_count == 0 ? (int64_t)std::ceil(m_solution.volumes[k_src] * (1.0 + new_harmony) * partial_score(k_src, i)) : 0;
         }
     }
 
@@ -426,9 +427,9 @@ struct CachedComputeScore {
           }
         }
         blocker_count(k_changed, i) = new_blocker_count;
-        old_influence += old_blocker_count == 0 ? (int64_t)std::ceil((1.0 + old_harmony) * partial_score(k_changed, i)) : 0;
+        old_influence += old_blocker_count == 0 ? (int64_t)std::ceil(m_solution.volumes[k_changed] * (1.0 + old_harmony) * partial_score(k_changed, i)) : 0;
         partial_score(k_changed, i) = (int64_t)std::ceil(1e6 * attendees[i].tastes[musicians[k_changed]] / distance_squared(placements[k_changed], attendees[i]));
-        new_influence += new_blocker_count == 0 ? (int64_t)std::ceil((1.0 + new_harmony) * partial_score(k_changed, i)) : 0;
+        new_influence += new_blocker_count == 0 ? (int64_t)std::ceil(m_solution.volumes[k_changed] * (1.0 + new_harmony) * partial_score(k_changed, i)) : 0;
     }
 
     m_score += new_influence - old_influence;
@@ -441,15 +442,6 @@ struct CachedComputeScore {
 
   int64_t full_compute(const Solution& solution) {
     Timer timer;
-
-    static bool warned = false;
-    if (!warned) {
-      if (m_problem.extension != Extension::lightning()) {
-        LOG(WARNING) << __FUNCTION__
-                     << " does not yet support full division extension";
-        warned = true;
-      }
-    }
 
     m_solution = solution;
     const auto& musicians = m_problem.musicians;
@@ -499,7 +491,7 @@ struct CachedComputeScore {
         const bool audible = blocker_count(k_src, i) == 0;
         const int64_t influence = (int64_t)ceil(1e6 * attendees[i].tastes[musicians[k_src]] / distance_squared(placements[k_src], attendees[i]));
         partial_score(k_src, i) = influence;
-        score_diff += audible ? (int64_t)ceil((1.0 + m_harmony_cache[k_src]) * influence) : 0;
+        score_diff += audible ? (int64_t)ceil(m_solution.volumes[k_src] * (1.0 + m_harmony_cache[k_src]) * influence) : 0;
       }
     }
     m_score += score_diff;
@@ -575,6 +567,7 @@ inline int64_t compute_score(const Problem& problem, const Solution& solution) {
   const auto& pillars = problem.pillars;
   const auto& placements = solution.placements;
   const auto& extension = problem.extension;
+  const bool is_volume_available = solution.volumes.size() == musicians.size();
 
   std::vector<double> harmony(musicians.size(), 1.0);
   if (extension.consider_harmony) {
@@ -627,7 +620,7 @@ inline int64_t compute_score(const Problem& problem, const Solution& solution) {
 #pragma omp critical(crit_sct)
       {
         double impact = ceil(1e6 * taste / d2);
-        score += (int64_t)ceil(qk * impact);
+        score += (int64_t)ceil((is_volume_available ? solution.volumes[k] : 1.0) * qk * impact);
       }
     }
   }

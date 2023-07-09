@@ -12,6 +12,28 @@ TEST(TestUtil, GuessProblemId) {
   EXPECT_EQ(guess_problem_id("path\\to\\solution-17_12345.json"), 17);
 }
 
+TEST(TestUtil, SolutionVolumeIO) {
+  Solution solution_without_volume = Solution::from_file("../data/test_data/solution-example.json");
+  std::vector<double> default_volumes = { 1.0, 1.0, 1.0 };
+  EXPECT_EQ(solution_without_volume.volumes, default_volumes);
+
+  Solution solution = Solution::from_file("../data/test_data/solution-example-with-volume.json");
+  std::vector<double> expected_volumes = { 1.5, 5.5, 10.5 };
+  EXPECT_EQ(solution.volumes, expected_volumes);
+
+  solution.volumes = {3.5, 4.5, 5.5};
+  auto j = solution.to_json();
+  EXPECT_TRUE(j.find("volumes") != j.end());
+  if (j.contains("volumes")) {
+    EXPECT_EQ(j["volumes"].size(), 3);
+    if (j["volumes"].size() == 3) {
+      EXPECT_EQ(j["volumes"][0], 3.5);
+      EXPECT_EQ(j["volumes"][1], 4.5);
+      EXPECT_EQ(j["volumes"][2], 5.5);
+    }
+  }
+}
+
 TEST(TestUtil, IsIntersect) {
   // 1 point inside, 1 point outside.
   EXPECT_TRUE(is_intersect(0, 0, 10, 0, 0, 10, 10));
