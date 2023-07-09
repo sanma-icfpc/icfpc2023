@@ -325,13 +325,13 @@ inline double get_temp(double stemp, double etemp, double t, double T) {
 #endif
 
 void solve(int problem_id) {
-
     Timer timer;
 
+    DUMP(problem_id);
+
     std::string in_file = format("../data/problems/problem-%d.json", problem_id);
-    //std::string sol_file;
-    std::string sol_file = R"(G:\dev\heuristic\icfpc2023\data\solutions\k3_v03_climbing\solution-1_652681121.json)";
-    std::string out_file_format = "../data/solutions/k3_v04_tmp/solution-%d_%lld.json";
+    std::string sol_file;
+    std::string out_file_format = "../data/solutions/k3_v04_annealing/solution-%d_sub=%lld.json";
     nlohmann::json data;
     {
         std::ifstream ifs(in_file);
@@ -339,7 +339,6 @@ void solve(int problem_id) {
     }
 
     Problem problem(data);
-    DUMP(problem.musicians.size(), problem.attendees.size());
 
     Xorshift rnd;
 
@@ -353,73 +352,57 @@ void solve(int problem_id) {
     if (!sol_file.empty()) {
         sol = Solution::from_file(sol_file);
     }
-    
-    if (false) {
-        auto best_score = compute_score_fast(problem, sol);
-        while (timer.elapsed_ms() < 10000) {
-            auto sopt = create_random_solution(problem, rnd);
-            if (!sopt) continue;
-            auto score = compute_score_fast(problem, *sopt);
+    else {
+        int loop_random = 0;
+        auto best_score = compute_score(problem, sol);
+        while (timer.elapsed_ms() < 3000) {
+            loop_random++;
+            auto nsol = create_random_solution(problem, rnd);
+            if (!nsol) continue;
+            auto score = compute_score(problem, *nsol);
             if (chmax(best_score, score)) {
-                sol = *sopt;
-                DUMP(timer.elapsed_ms(), best_score);
+                sol = *nsol;
+                DUMP(loop_random, best_score);
             }
         }
     }
 
-    State state(problem);
-    state.full_compute(sol);
+    CachedComputeScore cache(problem);
+    cache.full_compute(sol);
 
-    int loop = 0, accept = 0, reject = 0;
+    int loop = 0;
     double dump_interval = 1000.0;
-    double next_dump_time = dump_interval;
-    double start_time = timer.elapsed_ms(), now_time, end_time = 60000;
-    double start_temp = 1e3, end_temp = 1e3;
-    while ((now_time = timer.elapsed_ms()) < 60000) {
-        if (rnd.next_int(2)) {
-            auto pos = state.sample_random_pos(rnd);
-            int k = rnd.next_int(problem.musicians.size());
-            if (!state.can_move(k, pos)) continue;
-            loop++;
-            auto ppos = state.m_pos[k];
-            auto gain = state.move(k, pos);
-            double temp = get_temp(start_temp, end_temp, now_time - start_time, end_time - start_time);
-            double prob = exp(gain / temp);
-            if (rnd.next_double() < prob) {
-                accept++;
-            }
-            else {
-                state.move(k, ppos);
-                reject++;
-            }
+    double save_interval = 10000.0;
+    double start_time = timer.elapsed_ms(), now_time = start_time, end_time = 60000;
+    double next_dump_time = now_time;
+    double next_save_time = now_time;
+    bool save_mode = false;
+    while ((now_time = timer.elapsed_ms()) < end_time) {
+        loop++;
+        const int i = rnd.next_int(problem.musicians.size());
+        auto old_placement = cache.m_solution.placements[i];
+        auto new_placement_opt = suggest_random_position(problem, cache.m_solution, rnd, i);
+        if (!new_placement_opt) continue;
+        auto gain = cache.change_musician(i, *new_placement_opt);
+        double temp = get_temp(1e3, 1e1, now_time - start_time, end_time - start_time);
+        double prob = exp(gain / temp);
+        if (rnd.next_double() > prob) {
+            cache.change_musician(i, old_placement);
         }
-        else {
-            loop++;
-            int k1, k2;
-            do {
-                k1 = rnd.next_int(problem.musicians.size());
-                k2 = rnd.next_int(problem.musicians.size());
-            } while (k1 == k2);
-            auto gain = state.swap(k1, k2);
-            double temp = get_temp(start_temp, end_temp, now_time - start_time, end_time - start_time);
-            double prob = exp(gain / temp);
-            if (rnd.next_double() < prob) {
-                accept++;
-            }
-            else {
-                state.swap(k1, k2);
-                reject++;
-            }
-        }
-        if (next_dump_time < timer.elapsed_ms()) {
-            DUMP(loop, state.m_score, accept, reject);
+        if (next_dump_time < now_time) {
+            DUMP(now_time, loop, cache.score());
             next_dump_time += dump_interval;
         }
+        if (save_mode && next_save_time < now_time) {
+            save(cache.m_solution, problem_id, cache.score());
+            next_save_time += save_interval;
+        }
     }
-
-    sol = state.to_solution();
-    DUMP(state.m_score, compute_score_fast(problem, sol));
-
+    
+    sol = cache.m_solution;
+    auto score = compute_score(problem, sol);
+    DUMP(cache.score(), score);
+    save(sol, problem_id, score);
 }
 
 
@@ -429,13 +412,9 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     cv::utils::logging::setLogLevel(cv::utils::logging::LogLevel::LOG_LEVEL_SILENT);
 #endif
 
-    int problem_id = 1;
-    if (argc == 2) {
-        problem_id = std::stoi(argv[1]);
+    for (int problem_id = 56; problem_id <= 90; problem_id++) {
+        solve(problem_id);
     }
-    DUMP(problem_id);
-
-    solve(problem_id);
 
     return 0;
 }
