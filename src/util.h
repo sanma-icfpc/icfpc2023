@@ -278,7 +278,7 @@ struct CachedComputeScore {
   Solution m_solution;
 
 // private:
-  std::vector<double> m_harmony_cache;
+  std::vector<double> m_harmony_cache; // 1 + m_harmony_cache[k] is the harmony.
   std::vector<int64_t> m_score_cache;
   std::vector<uint8_t> m_audible_cache;
   std::vector<int16_t> m_blocker_count_cache;
@@ -290,7 +290,7 @@ struct CachedComputeScore {
         m_num_attendees(problem.attendees.size()),
         m_num_musicians(problem.musicians.size()),
         m_num_pillars(problem.extension.consider_pillars ? problem.pillars.size() : 0),
-        m_harmony_cache(m_num_musicians, 1.0),
+        m_harmony_cache(m_num_musicians, 0.0),
         m_score_cache(problem.attendees.size() * problem.musicians.size(), 0),
         m_audible_cache(problem.attendees.size() * problem.musicians.size() * problem.musicians.size(), 1),
         m_blocker_count_cache(problem.attendees.size() * problem.musicians.size(), 0) {
@@ -338,7 +338,7 @@ struct CachedComputeScore {
     for (auto k_src : std::views::iota(0, m_num_musicians)) {
         if (k_changed == k_src) continue;
 
-        double old_harmony = 1.0, new_harmony = 1.0;
+        double old_harmony = 0.0, new_harmony = 0.0;
         if (m_problem.extension.consider_harmony) {
           if (musicians[k_changed] == musicians[k_src]) {
             old_harmony = m_harmony_cache[k_src];
@@ -346,8 +346,6 @@ struct CachedComputeScore {
             new_harmony = m_harmony_cache[k_src];
           }
         }
-        ///LOG_ASSERT(old_harmony == 1.0);
-        ///LOG_ASSERT(new_harmony == 1.0);
 
         for (auto i : std::views::iota(0, m_num_attendees)) {
             const bool old_audible = partial_audible(k_src, k_changed, i);
@@ -359,8 +357,8 @@ struct CachedComputeScore {
             if (!old_audible && new_audible) blocker_count(k_src, i) -= 1;
             const auto new_blocker_count = blocker_count(k_src, i);
 
-            old_influence += old_blocker_count == 0 ? (int64_t)std::ceil(old_harmony * partial_score(k_src, i)) : 0;
-            new_influence += new_blocker_count == 0 ? (int64_t)std::ceil(new_harmony * partial_score(k_src, i)) : 0;
+            old_influence += old_blocker_count == 0 ? (int64_t)std::ceil((1.0 + old_harmony) * partial_score(k_src, i)) : 0;
+            new_influence += new_blocker_count == 0 ? (int64_t)std::ceil((1.0 + new_harmony) * partial_score(k_src, i)) : 0;
         }
     }
 
@@ -372,6 +370,7 @@ struct CachedComputeScore {
         }
       }
     }
+    const double new_harmony = m_harmony_cache[k_changed];
 
     // 移動したmusicianが得る効果の増減
     for (auto i : std::views::iota(0, m_num_attendees)) {
@@ -388,15 +387,10 @@ struct CachedComputeScore {
           }
         }
         blocker_count(k_changed, i) = new_blocker_count;
-
-        //LOG_ASSERT(old_harmony == 1.0);
-        //LOG_ASSERT(m_harmony_cache[k_changed] == 1.0);
-
-        old_influence += old_blocker_count == 0 ? (int64_t)std::ceil(old_harmony * partial_score(k_changed, i)) : 0;
+        old_influence += old_blocker_count == 0 ? (int64_t)std::ceil((1.0 + old_harmony) * partial_score(k_changed, i)) : 0;
         partial_score(k_changed, i) = (int64_t)std::ceil(1e6 * attendees[i].tastes[musicians[k_changed]] / distance_squared(placements[k_changed], attendees[i]));
-        new_influence += new_blocker_count == 0 ? (int64_t)std::ceil(m_harmony_cache[k_changed] * partial_score(k_changed, i)) : 0;
+        new_influence += new_blocker_count == 0 ? (int64_t)std::ceil((1.0 + new_harmony) * partial_score(k_changed, i)) : 0;
     }
-
 
     m_score += new_influence - old_influence;
     return new_influence - old_influence;
@@ -422,12 +416,12 @@ struct CachedComputeScore {
     m_score_cache.assign(m_score_cache.size(), 0);
     m_audible_cache.assign(m_audible_cache.size(), 1);
     m_blocker_count_cache.assign(m_blocker_count_cache.size(), 0);
-    m_harmony_cache.assign(m_harmony_cache.size(), 1.0);
+    m_harmony_cache.assign(m_harmony_cache.size(), 0.0);
 
     if (m_problem.extension.consider_harmony) {
 #pragma omp parallel for
       for (int k = 0; k < musicians.size(); k++) {
-        double harmony = 1.0;
+        double harmony = 0.0;
         for (auto k_other : std::views::iota(0, m_num_musicians)) {
           if (k != k_other && musicians[k] == musicians[k_other]) {
             harmony += inverse_distance(placements[k], placements[k_other]);
@@ -455,7 +449,7 @@ struct CachedComputeScore {
         const bool audible = blocker_count(k_src, i) == 0;
         const int64_t influence = (int64_t)ceil(1e6 * attendees[i].tastes[musicians[k_src]] / distance_squared(placements[k_src], attendees[i]));
         partial_score(k_src, i) = influence;
-        m_score += audible ? (int64_t)ceil(m_harmony_cache[k_src] * influence) : 0;
+        m_score += audible ? (int64_t)ceil((1.0 + m_harmony_cache[k_src]) * influence) : 0;
       }
     }
 
