@@ -78,6 +78,70 @@ TEST(TestUtil, CachedComputeScore_ConsistentWithReferenceScoreDuringRandomChange
   }
 }
 
+TEST(TestUtil, DISABLED_CachedComputeScore_ConsistentWithReferenceScoreDuringRandomChangeWithPillars) {
+  Problem problem = Problem::from_file("../data/test_data/problem-85-mod-no-harmony.json");
+  Xorshift rnd(42);
+  Solution solution = *create_random_solution(problem, rnd);
+  const int M = solution.placements.size();
+  LOG(INFO) << "Pillars: " << problem.pillars.size();
+
+  CachedComputeScore cache(problem);
+  cache.full_compute(solution);
+  EXPECT_EQ(cache.score(), compute_score(problem, solution));
+
+  for (int loop = 0; loop < 100; ++loop) {
+    const int i = rnd.next_int() % M;
+    auto new_placement_opt = suggest_random_position(problem, cache.m_solution, rnd, i);
+    EXPECT_TRUE(bool(new_placement_opt)); // 99% sure..
+    EXPECT_NE(cache.change_musician(i, *new_placement_opt), 0); // 99% sure..
+    const int64_t score_reference = compute_score(problem, cache.m_solution);
+    EXPECT_EQ(cache.score(), score_reference);
+  }
+}
+
+TEST(TestUtil, DISABLED_CachedComputeScore_ConsistentWithReferenceScoreDuringRandomChangeWithHarmony) {
+  Problem problem = Problem::from_file(85);
+  problem.pillars.clear();
+  Xorshift rnd(42);
+  Solution solution = *create_random_solution(problem, rnd);
+  const int M = solution.placements.size();
+
+  CachedComputeScore cache(problem);
+  cache.full_compute(solution);
+  EXPECT_EQ(cache.score(), compute_score(problem, solution));
+
+  for (int loop = 0; loop < 100; ++loop) {
+    const int i = rnd.next_int() % M;
+    auto new_placement_opt = suggest_random_position(problem, cache.m_solution, rnd, i);
+    EXPECT_TRUE(bool(new_placement_opt)); // 99% sure..
+    EXPECT_NE(cache.change_musician(i, *new_placement_opt), 0); // 99% sure..
+    const int64_t score_reference = compute_score(problem, cache.m_solution);
+    EXPECT_EQ(cache.score(), score_reference);
+    if (cache.score() != score_reference) {
+      LOG(INFO) << "error at loop = " << loop;
+    }
+  }
+}
+
+TEST(TestUtil, DISABLED_CachedComputeScore_ConsistentWithReferenceScoreDuringRandomChangeFullDivision) {
+  Problem problem = Problem::from_file("../data/problems/problem-85.json");
+  Xorshift rnd(42);
+  Solution solution = *create_random_solution(problem, rnd);
+  const int M = solution.placements.size();
+
+  CachedComputeScore cache(problem);
+  cache.full_compute(solution);
+
+  for (int loop = 0; loop < 100; ++loop) {
+    const int i = rnd.next_int() % M;
+    auto new_placement_opt = suggest_random_position(problem, cache.m_solution, rnd, i);
+    EXPECT_TRUE(bool(new_placement_opt)); // 99% sure..
+    EXPECT_NE(cache.change_musician(i, *new_placement_opt), 0); // 99% sure..
+    const int64_t score_reference = compute_score(problem, cache.m_solution);
+    EXPECT_EQ(cache.score(), score_reference);
+  }
+}
+
 TEST(TestUtil, GuessExtension) {
   EXPECT_EQ(Problem::from_file(42).extension, Extension::lightning());
   EXPECT_EQ(Problem::from_file(56).extension, Extension::full());
