@@ -163,9 +163,9 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     LOG_ASSERT(cache.score() == best_score);
 
 
+    int loop = 0;
+    int accept = 0, reject = 0;
     if (method == "HILLCLIMB") {
-        int loop = 0;
-        int accept = 0, reject = 0;
         while (timer.elapsed_ms() < t_max) {
             loop++;
             if (num_force_reset_iter > 0 &&  loop % num_force_reset_iter == 0) {
@@ -194,13 +194,60 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
         DUMP(loop);
         DUMP(best_score);
     }
+    if (method == "LINEHC") {
+        while (timer.elapsed_ms() < t_max) {
+            loop++;
+            if (num_force_reset_iter > 0 &&  loop % num_force_reset_iter == 0) {
+                int64_t adjust_score = -best_score;
+                best_score = cache.full_compute(cache.m_solution);
+                adjust_score += best_score;
+                LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "current":%lld, "accept":%d, "reject":%d, "adjust":%d})", loop, best_score, accept, reject, adjust_score);
+            }
+            // 適当な点を定め、そこまでの間を分割して試して最も良いものを選ぶ
+            auto changeset_goal = Changeset::sample_random_motion(problem, rnd, cache.m_solution);
+            const int num_split = 10;
+            bool found = false;
+            for (int i = 0; i < num_split; ++i) {
+                double t = double(i) / double(num_split - 1);
+                Changeset changeset = changeset_goal;
+                changeset.i_after = {
+                    changeset.i_before.x * t + changeset_goal.i_after.x * (1.0 - t),
+                    changeset.i_before.y * t + changeset_goal.i_after.y * (1.0 - t),
+                };
+                bool conflict = false;
+                for (int kk = 0; kk < cache.m_solution.placements.size(); ++kk) {
+                    if (changeset.i != kk) {
+                        if (are_musicians_too_close(cache.m_solution.placements[kk], changeset.i_after)) {
+                            conflict = true;
+                            break;
+                        }
+                    }
+                }
+                if (conflict) continue;
+                cache.change_musician(changeset.i, changeset.i_after);
+                int64_t score = cache.score();
+                if (chmax(best_score, score)) {
+                    best_solution = cache.m_solution;
+                    found = true;
+                } else {
+                    if (changeset.i >= 0) cache.change_musician(changeset.i, changeset.i_before);
+                }
+                break;
+            }
+            if (found) { ++accept; } else { ++reject; }
+
+            if (loop % 100 == 0) {
+                LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "accept":%d, "reject":%d})", loop, best_score, accept, reject);
+            }
+        }
+        DUMP(loop);
+        DUMP(best_score);
+    }
     if (method == "SA") {
-        int loop = 0;
         double T_start = best_score * 0.01;
         double T_stop = best_score * 0.0001;
         double t = 0.0;
         Solution current_solution = best_solution;
-        int accept = 0, reject = 0;
         while ((t = timer.elapsed_ms()) < t_max) {
             //const double T = T_stop + (T_start - T_stop) * (1.0 - t / t_max);
             const double T = T_start * 1000 / (loop + 1);
@@ -249,10 +296,8 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
         DUMP(loop, best_score, accept, reject);
     }
     if (method == "ILS") {
-        int loop = 0;
         double t = 0.0;
         Solution current_solution = best_solution;
-        int accept = 0, reject = 0;
         while ((t = timer.elapsed_ms()) < t_max) {
             // LS
             bool reset = false;
