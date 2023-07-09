@@ -39,12 +39,12 @@ with open(file_path, 'r') as fi:
                 td = at - started_at
 
             payload = json.loads(gd['json'])
-            payload['time'] = td
+            payload['time_s'] = td.total_seconds()
             rows.append(payload)
             print(payload)
 
 df = pd.DataFrame(rows)
-df.set_index('time', inplace=True)
+df.set_index('time_s', inplace=True)
 st.line_chart(df[['best']])
 st.line_chart(df[['accept', 'reject']])
 
