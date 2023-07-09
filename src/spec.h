@@ -170,6 +170,7 @@ struct Placement {
   double y;
 
   Placement(double x = 0.0, double y = 0.0) : x(x), y(y) {}
+  auto operator<=>(const Placement&) const = default;
 
   std::string stringify() const {
     return "(" + std::to_string(x) + ", " + std::to_string(y) + ")";

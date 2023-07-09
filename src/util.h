@@ -249,8 +249,9 @@ struct CachedComputeScore {
   Solution m_solution;
 
  private:
-  std::vector<int64_t> m_score_k_i;
-  std::vector<uint8_t> m_block;
+  std::vector<int64_t> m_score_cache;
+  std::vector<uint8_t> m_audible_cache;
+  std::vector<int16_t> m_blocker_count_cache;
   int64_t m_score;
 
  public:
@@ -258,96 +259,98 @@ struct CachedComputeScore {
       : m_problem(problem),
         m_num_attendees(problem.attendees.size()),
         m_num_musicians(problem.musicians.size()),
-        m_score_k_i(problem.attendees.size() * problem.musicians.size(), 0),
-        m_block(problem.attendees.size() * problem.musicians.size() *
-                    problem.musicians.size(),
-                0) {}
+        m_score_cache(problem.attendees.size() * problem.musicians.size(), 0),
+        m_audible_cache(problem.attendees.size() * problem.musicians.size() * problem.musicians.size(), 1),
+        m_blocker_count_cache(problem.attendees.size() * problem.musicians.size(), 0) {
+  }
 
   int64_t& partial_score(int k, int i) {
 #if 0
         LOG_ASSERT(0 <= k && k < m_num_musicians);
         LOG_ASSERT(0 <= i && i < m_num_attendees);
 #endif
-    return m_score_k_i[k * m_num_attendees + i];
+    return m_score_cache[k * m_num_attendees + i];
   }
-  // k's ray to i is blocked by kk
-  uint8_t& partial_block(int k, int kk, int i) {
+  int16_t& blocker_count(int k, int i) {
 #if 0
         LOG_ASSERT(0 <= k && k < m_num_musicians);
-        LOG_ASSERT(0 <= kk && kk < m_num_musicians);
-        LOG_ASSERT(k != kk); // not illegal but strange.
         LOG_ASSERT(0 <= i && i < m_num_attendees);
 #endif
-    return m_block[(k * m_num_musicians + kk) * m_num_attendees + i];
+    return m_blocker_count_cache[k * m_num_attendees + i];
+  }
+  // k_src's ray to i is audible by k_other
+  uint8_t& partial_audible(int k_src, int k_other, int i) {
+#if 0
+        LOG_ASSERT(0 <= k_src && k_src < m_num_musicians);
+        LOG_ASSERT(0 <= k_other && k_other < m_num_musicians);
+        LOG_ASSERT(k_src != k_other); // not illegal but strange.
+        LOG_ASSERT(0 <= i && i < m_num_attendees);
+#endif
+    return m_audible_cache[(k_src * m_num_musicians + k_other) * m_num_attendees + i];
   }
   int64_t score() const { return m_score; }
 
   int64_t change_musician(int k_changed, const Placement& curr_placement) {
+    m_solution.placements[k_changed] = curr_placement;
     const auto& musicians = m_problem.musicians;
     const auto& attendees = m_problem.attendees;
     const auto& placements = m_solution.placements;
     LOG_ASSERT(musicians.size() == placements.size());
 
-    int64_t score_gain = 0;
-    {  // score that musician k_changed offers.
-      int t = m_problem.musicians[k_changed];
-#pragma omp parallel for reduction(+ : score_gain)
-      for (int i = 0; i < attendees.size(); i++) {
-        double ax = attendees[i].x, ay = attendees[i].y;
-        bool blocked = false;
-        bool prev_blocked = false;
-        for (int kk = 0; kk < musicians.size(); kk++) {
-          if (k_changed == kk)
-            continue;
-          if (partial_block(k_changed, kk, i)) {
-            prev_blocked = true;
-          }
-          if (is_intersect(placements[kk], 5.0, curr_placement, attendees[i])) {
-            blocked = true;
-            partial_block(k_changed, kk, i) = true;
-          } else {
-            partial_block(k_changed, kk, i) = false;
-          }
+    // スコアの更新前に、ブロック状況の更新が必要(ブロックは新旧両方を同時に利用するため)
+    int64_t old_influence = 0;
+    int64_t new_influence = 0;
+    for (auto k_src : std::views::iota(0, m_num_musicians)) {
+        if (k_changed == k_src) continue;
+        for (auto i : std::views::iota(0, m_num_attendees)) {
+            const bool old_audible = partial_audible(k_src, k_changed, i);
+            const bool new_audible = !is_intersect(placements[k_changed], k_musician_radius, placements[k_src], attendees[i]);
+            partial_audible(k_src, k_changed, i) = new_audible; // この二重ループでは全て独立
+
+            const auto old_blocker_count = blocker_count(k_src, i);
+            if (old_audible && !new_audible) blocker_count(k_src, i) += 1;
+            if (!old_audible && new_audible) blocker_count(k_src, i) -= 1;
+            const auto new_blocker_count = blocker_count(k_src, i);
+
+            old_influence += old_blocker_count == 0 ? partial_score(k_src, i) : 0;
+            new_influence += new_blocker_count == 0 ? partial_score(k_src, i) : 0;
         }
-        double d2 = distance_squared(attendees[i], curr_placement);
-        double taste = attendees[i].tastes[t];
-        int64_t prev = partial_score(k_changed, i);
-        int64_t curr = (int64_t)ceil(1e6 * taste / d2);
-        score_gain += (blocked ? 0 : curr) - (prev_blocked ? 0 : prev);
-        partial_score(k_changed, i) = curr;
-      }
     }
 
-    // score that musician k_changed blocks/unblocks k -> i.
-#pragma omp parallel for reduction(+ : score_gain)
-    for (int k = 0; k < musicians.size(); k++) {
-      if (k == k_changed)
-        continue;
-      int t = m_problem.musicians[k];
-      for (int i = 0; i < attendees.size(); i++) {
-        bool blocked =
-            is_intersect(curr_placement, 5.0, placements[k], attendees[i]);
-        double taste = attendees[i].tastes[t];
-        int64_t prev = partial_score(k, i);
-        score_gain +=
-            (blocked ? 0 : prev) - (partial_block(k, k_changed, i) ? 0 : prev);
-        partial_block(k, k_changed, i) = blocked;
-      }
+    // 移動したmusicianが得る効果の増減
+    for (auto i : std::views::iota(0, m_num_attendees)) {
+        bool old_audible = true;
+        bool new_audible = true;
+
+        for (auto k_other : std::views::iota(0, m_num_musicians)) {
+            if (k_other == k_changed) continue;
+            if (!partial_audible(k_changed, k_other, i)) {
+                old_audible = false;
+            }
+            partial_audible(k_changed, k_other, i) = !is_intersect(placements[k_other], k_musician_radius, placements[k_changed], attendees[i]);
+            if (!partial_audible(k_changed, k_other, i)) {
+                new_audible = false;
+                // partial_audibleを完全に設定するため、早期breakはできない
+            }
+        }
+
+        old_influence += old_audible ? partial_score(k_changed, i) : 0;
+        partial_score(k_changed, i) = (int64_t)std::ceil(1e6 * attendees[i].tastes[musicians[k_changed]] / distance_squared(placements[k_changed], attendees[i]));
+        new_influence += new_audible ? partial_score(k_changed, i) : 0;
     }
 
-    // update musician.
-    m_solution.placements[k_changed] = curr_placement;
-
-    m_score += score_gain;
-    return score_gain;
+    m_score += new_influence - old_influence;
+    return new_influence - old_influence;
   }
 
   int64_t full_compute(const Solution& solution) {
     static bool warned = false;
     if (!warned) {
-      LOG(WARNING) << __FUNCTION__
-                   << " does not yet support full division extension";
-      warned = true;
+      if (m_problem.extension != Extension::lightning()) {
+        LOG(WARNING) << __FUNCTION__
+                     << " does not yet support full division extension";
+        warned = true;
+      }
     }
 
     m_solution = solution;
@@ -356,26 +359,24 @@ struct CachedComputeScore {
     const auto& placements = solution.placements;
 
     m_score = 0;
-    m_score_k_i.assign(m_score_k_i.size(), 0);
-    m_block.assign(m_block.size(), 0);
+    m_score_cache.assign(m_score_cache.size(), 0);
+    m_audible_cache.assign(m_audible_cache.size(), 1);
+    m_blocker_count_cache.assign(m_blocker_count_cache.size(), 0);
 
-    for (int k = 0; k < musicians.size(); k++) {
-      int t = m_problem.musicians[k];
-      for (int i = 0; i < attendees.size(); i++) {
-        double ax = attendees[i].x, ay = attendees[i].y;
-        bool blocked = false;
-        for (int kk = 0; kk < musicians.size(); kk++) {
-          if (k != kk &&
-              is_intersect(placements[kk], 5.0, placements[k], attendees[i])) {
-            blocked = true;
-            partial_block(k, kk, i) = true;
+    for (auto k_src : std::views::iota(0, m_num_musicians)) {
+      for (auto i : std::views::iota(0, m_num_attendees)) {
+        for (auto k_other : std::views::iota(0, m_num_musicians)) {
+          if (k_src != k_other) {
+            partial_audible(k_src, k_other, i) = !is_intersect(placements[k_other], k_musician_radius, placements[k_src], attendees[i]);
+            if (!partial_audible(k_src, k_other, i)) {
+                blocker_count(k_src, i) += 1;
+            }
           }
         }
-        double d2 = distance_squared(placements[k], attendees[i]);
-        double taste = attendees[i].tastes[t];
-        int64_t curr = (int64_t)ceil(1e6 * taste / d2);
-        m_score += blocked ? 0 : curr;
-        partial_score(k, i) = curr;
+        const bool audible = blocker_count(k_src, i) == 0;
+        const int64_t influence = (int64_t)ceil(1e6 * attendees[i].tastes[musicians[k_src]] / distance_squared(placements[k_src], attendees[i]));
+        partial_score(k_src, i) = influence;
+        m_score += audible ? influence : 0;
       }
     }
 

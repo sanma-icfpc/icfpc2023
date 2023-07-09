@@ -29,6 +29,20 @@ TEST(TestUtil, IsIntersect) {
   EXPECT_FALSE(is_intersect(0, 0, 10, 0, 0, 5, 5));
 }
 
+TEST(TestUtil, CachedComputeScore_IdenticalChangeWillNotChangeScore) {
+  Problem problem = Problem::from_file(42);
+  Xorshift rnd(42);
+  Solution solution = *create_random_solution(problem, rnd);
+
+  CachedComputeScore cache(problem);
+  cache.full_compute(solution);
+  int64_t score_before = cache.score();
+  int64_t gain_forward = cache.change_musician(1, solution.placements[1]);
+  int64_t score_after = cache.score();
+  EXPECT_EQ(gain_forward, 0);
+  EXPECT_EQ(score_before, score_after);
+}
+
 TEST(TestUtil, CachedComputeScore_InverseOperationCancelsOutScoreGain) {
   Problem problem = Problem::from_file(42);
   Xorshift rnd(42);
