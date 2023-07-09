@@ -459,7 +459,8 @@ inline int64_t compute_score(const Problem& problem, const Solution& solution) {
         if (instrument == musicians[kk]) {
           auto&& p2 = placements[kk];
           double distance = std::hypot(p1.x - p2.x, p1.y - p2.y);
-          harmony[k] += 1.0 / distance;
+          double q = 1.0 / distance;
+          harmony[k] += q;
           harmony[kk] += q;
         }
       }
