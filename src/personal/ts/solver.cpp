@@ -196,15 +196,19 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     }
     if (method == "SA") {
         int loop = 0;
-        double T_start = 1e5;
-        double T_stop = 1e3;
+        double T_start = best_score * 0.01;
+        double T_stop = best_score * 0.0001;
         double t = 0.0;
         Solution current_solution = best_solution;
         int accept = 0, reject = 0;
         while ((t = timer.elapsed_ms()) < t_max) {
             const double T = T_stop + (T_start - T_stop) * (1.0 - t / t_max);
             loop++;
-            if (num_force_reset_iter > 0 &&  loop % num_force_reset_iter == 0) cache.full_compute(current_solution);
+            if (num_force_reset_iter > 0 &&  loop % num_force_reset_iter == 0) {
+                best_score = cache.full_compute(best_solution);
+                int64_t score = cache.full_compute(current_solution);
+                LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "current":%lld, "accept":%d, "reject":%d, "T":%f})", loop, best_score, score, accept, reject, T);
+            }
             Changeset changeset;
             int64_t gain = 0;
             double action = rnd.next_double();
@@ -224,9 +228,8 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
                 changeset.apply(current_solution);
                 best_solution = current_solution;
                 ++accept;
-                DUMP(loop, best_score, accept, reject);
+                LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "current":%lld, "accept":%d, "reject":%d, "T":%f})", loop, best_score, score, accept, reject, T);
             } else {
-                // DUMP(t / t_max, T, gain, p);
                 if (gain > 0 || rnd.next_double() < p) {
                     ++accept;
                     changeset.apply(current_solution);
@@ -234,6 +237,9 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
                     ++reject;
                     if (changeset.i >= 0) cache.change_musician(changeset.i, changeset.i_before);
                     if (changeset.j >= 0) cache.change_musician(changeset.j, changeset.j_before);
+                }
+                if (loop % 1000 == 0) {
+                    LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "current":%lld, "accept":%d, "reject":%d, "T":%f})", loop, best_score, score, accept, reject, T);
                 }
             }
         }
@@ -247,30 +253,40 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
         while ((t = timer.elapsed_ms()) < t_max) {
             // LS
             bool reset = false;
-            for (int ls = 0; ls < 100 && timer.elapsed_ms() < t_max; ++ls) {
+            int64_t score = 0;
+            for (int ls = 0; ls < 1000 && timer.elapsed_ms() < t_max; ++ls) {
                 loop++;
-                if (num_force_reset_iter > 0 &&  loop % num_force_reset_iter == 0) reset = true;
-                auto changeset = Changeset::sample_random_motion(problem, rnd, current_solution);
+                if (num_force_reset_iter > 0 && loop % num_force_reset_iter == 0) reset = true;
+                auto changeset = Changeset::sample_random_motion(problem, rnd, cache.m_solution);
                 auto gain = cache.change_musician(changeset.i, changeset.i_after);
-                int64_t score = cache.score();
+                score = cache.score();
                 if (chmax(best_score, score)) {
-                    changeset.apply(current_solution);
-                    best_solution = current_solution;
+                    best_solution = cache.m_solution;
                     ++accept;
-                    //DUMP("LS", loop, best_score, accept, reject);
                 } else {
                     ++reject;
                     if (changeset.i >= 0) cache.change_musician(changeset.i, changeset.i_before);
                 }
+                if (ls % 100 == 0) {
+                    LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "current":%lld, "accept":%d, "reject":%d})", loop, best_score, score, accept, reject);
+                }
             }
             { // kick
-                if (reset) cache.full_compute(current_solution);
-                auto changeset = Changeset::sample_random_mutation(problem, rnd, current_solution);
-                cache.change_musician(changeset.i, changeset.i_after);
-                cache.change_musician(changeset.j, changeset.j_after);
-                changeset.apply(current_solution);
+                LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "current":%lld, "accept":%d, "reject":%d})", loop, best_score, score, accept, reject);
+                if (reset) {
+                    best_score = cache.full_compute(best_solution);
+                    cache.full_compute(cache.m_solution);
+                }
+                //auto changeset = Changeset::sample_random_mutation(problem, rnd, cache.m_solution);
+                //cache.change_musician(changeset.i, changeset.i_after);
+                //cache.change_musician(changeset.j, changeset.j_after);
+                for (int i = 0; i < 3; ++i) { // as a kick, repeate for a few times.
+                    auto changeset = Changeset::sample_random_motion(problem, rnd, cache.m_solution);
+                    cache.change_musician(changeset.i, changeset.i_after);
+                }
                 ++accept;
                 DUMP("kick", loop, best_score, accept, reject);
+                LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "current":%lld, "accept":%d, "reject":%d})", loop, best_score, score, accept, reject);
             }
         }
         DUMP(loop, best_score, accept, reject);
