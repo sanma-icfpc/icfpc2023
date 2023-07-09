@@ -40,7 +40,7 @@ struct Changeset {
             break;
         }
     }
-    static Changeset sample_random_mutation(const Problem& problem, Xorshift& rnd, Solution& solution) {
+    static Changeset sample_random_mutation(const Problem& problem, Xorshift& rnd, const Solution& solution) {
         const size_t N = solution.placements.size();
         const int i = rnd.next_int() % N;
         const int j = (i + 1 + rnd.next_int() % (N - 1)) % N;
@@ -51,7 +51,7 @@ struct Changeset {
             solution.placements[j], solution.placements[i],
         };
     }
-    static Changeset sample_random_delta(const Problem& problem, Xorshift& rnd, Solution& solution) {
+    static Changeset sample_random_delta(const Problem& problem, Xorshift& rnd, const Solution& solution) {
         const size_t N = solution.placements.size();
         const int i = rnd.next_int() % N;
 
@@ -62,8 +62,8 @@ struct Changeset {
 
         for (int retry = 0; retry < 100; ++retry) {
             Placement placement = solution.placements[i];
-            placement.x += rnd.next_double() * 3.0;
-            placement.y += rnd.next_double() * 3.0;
+            placement.x += rnd.next_double() * 3.0 - 1.5;
+            placement.y += rnd.next_double() * 3.0 - 1.5;
             if (!is_musician_on_stage(problem, placement)) continue;
             bool conflict = false;
             for (int kk = 0; kk < solution.placements.size(); ++kk) {
@@ -80,7 +80,7 @@ struct Changeset {
 
         return chg;
     }
-    static Changeset sample_random_motion(const Problem& problem, Xorshift& rnd, Solution& solution) {
+    static Changeset sample_random_motion(const Problem& problem, Xorshift& rnd, const Solution& solution) {
         const size_t N = solution.placements.size();
         const int i = rnd.next_int() % N;
 
@@ -115,11 +115,11 @@ struct Changeset {
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
 
-    std::string solution_path;
+    std::string solution_or_problem_path;
     std::string method = "SA";
     double t_max = 10000.0;
     if (argc >= 2) {
-        solution_path = argv[1];
+        solution_or_problem_path = argv[1];
     }
     if (argc >= 3) {
         method = argv[2];
@@ -127,8 +127,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     if (argc >= 4) {
         t_max = std::atof(argv[3]);
     }
-    int problem_id = *guess_problem_id(solution_path);
-    auto extension = Extension::from_problem_id(problem_id);
+    int problem_id = *guess_problem_id(solution_or_problem_path);
     DUMP(problem_id);
 
     Timer timer;
@@ -137,18 +136,23 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     cv::utils::logging::setLogLevel(cv::utils::logging::LogLevel::LOG_LEVEL_SILENT);
 #endif
 
+    Xorshift rnd(42);
     Problem problem = Problem::from_file(problem_id);
-    Solution input_solution = Solution::from_file(solution_path);
+    Solution input_solution = Solution::from_file(solution_or_problem_path);
+    if (input_solution.placements.empty()) {
+        LOG(WARNING) << "provided a problem file. starting from a random state.";
+        input_solution = *create_random_solution(problem, rnd);
+    }
     int64_t input_score = compute_score(problem, input_solution);
     DUMP(input_score);
 
-    Xorshift rnd(42);
     Solution best_solution = input_solution;
 
     const int num_force_reset_iter = 3000;
     CachedComputeScore cache(problem);
     cache.full_compute(best_solution);
     int64_t best_score = input_score;
+    LOG_ASSERT(cache.score() == best_score);
 
 
     if (method == "HILLCLIMB") {
@@ -259,6 +263,8 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     std::cout << format("init_score  = %I64d (%s)", input_score, int_to_delimited_string(input_score).c_str()) << std::endl;
     std::cout << format("best_score  = %I64d (%s)", best_score, int_to_delimited_string(best_score).c_str()) << std::endl;
     std::cout << format("final_score = %I64d (%s)", final_score, int_to_delimited_string(final_score).c_str()) << std::endl;
+
+    cache.report();
 
     if (best_score > 0) {
         std::ofstream ofs(format("../data/solutions/ts/solution-%d.json", problem_id));
