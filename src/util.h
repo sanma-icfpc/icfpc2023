@@ -319,24 +319,19 @@ struct CachedComputeScore {
 
     // 移動したmusicianが得る効果の増減
     for (auto i : std::views::iota(0, m_num_attendees)) {
-        bool old_audible = true;
-        bool new_audible = true;
-
+        int64_t old_blocker_count = 0;
+        int64_t new_blocker_count = 0;
         for (auto k_other : std::views::iota(0, m_num_musicians)) {
             if (k_other == k_changed) continue;
-            if (!partial_audible(k_changed, k_other, i)) {
-                old_audible = false;
-            }
+            if (!partial_audible(k_changed, k_other, i)) old_blocker_count++;
             partial_audible(k_changed, k_other, i) = !is_intersect(placements[k_other], k_musician_radius, placements[k_changed], attendees[i]);
-            if (!partial_audible(k_changed, k_other, i)) {
-                new_audible = false;
-                // partial_audibleを完全に設定するため、早期breakはできない
-            }
+            if (!partial_audible(k_changed, k_other, i)) new_blocker_count++;
         }
+        blocker_count(k_changed, i) = new_blocker_count;
 
-        old_influence += old_audible ? partial_score(k_changed, i) : 0;
+        old_influence += old_blocker_count == 0 ? partial_score(k_changed, i) : 0;
         partial_score(k_changed, i) = (int64_t)std::ceil(1e6 * attendees[i].tastes[musicians[k_changed]] / distance_squared(placements[k_changed], attendees[i]));
-        new_influence += new_audible ? partial_score(k_changed, i) : 0;
+        new_influence += new_blocker_count == 0 ? partial_score(k_changed, i) : 0;
     }
 
     m_score += new_influence - old_influence;
