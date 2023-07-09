@@ -8,6 +8,7 @@
 #pragma GCC diagnostic pop
 #endif
 
+#include "../../../src/cached_compute_score.h"
 #include "../../../src/spec.h"
 #include "../../../src/util.h"
 

@@ -1,6 +1,7 @@
 #define _CRT_NONSTDC_NO_WARNINGS
 #define _SILENCE_CXX17_ITERATOR_BASE_CLASS_DEPRECATION_WARNING
 
+#include "../../cached_compute_score.h"
 #include "../../spec.h"
 #include "../../util.h"
 

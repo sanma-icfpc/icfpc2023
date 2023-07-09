@@ -36,7 +36,7 @@ LDFLAGS+=-lpthread
 #CXXFLAGS+=-DNDEBUG
 
 # add your cpp files here:
-SRCS+=util.cpp
+SRCS+=util.cpp cached_compute_score.cpp
 OBJS=$(SRCS:%.cpp=$(BUILD_PATH)/%.o)
 DEPS=$(SRCS:%.cpp=$(BUILD_PATH)/%.d)
 
