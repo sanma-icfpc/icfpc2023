@@ -357,39 +357,37 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
                 int64_t adjust_score = -best_score;
                 best_score = cache.full_compute(best_solution);
                 adjust_score += best_score;
-                int64_t score = cache.full_compute(current_solution);
+                int64_t score = cache.full_compute(cache.m_solution);
                 LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "current":%lld, "accept":%d, "reject":%d, "T":%f, "adjust":%d})", loop, best_score, score, accept, reject, T, adjust_score);
             }
             Changeset changeset;
             int64_t gain = 0;
             double action = rnd.next_double();
-            if (action < 0.0) {
-                changeset = Changeset::sample_random_mutation(problem, rnd, current_solution);
+            if (action < 0.01) {
+                changeset = Changeset::sample_random_mutation(problem, rnd, cache.m_solution);
                 gain = cache.change_musician(changeset.i, changeset.i_after) + cache.change_musician(changeset.j, changeset.j_after);
             } else if (action < 0.0) {
-                changeset = Changeset::sample_random_delta(problem, rnd, current_solution, 5.0);
+                changeset = Changeset::sample_random_delta(problem, rnd, cache.m_solution, 5.0);
                 gain = cache.change_musician(changeset.i, changeset.i_after);
-            } else if (action < 0.01) {
-                changeset = Changeset::sample_random_volume(problem, rnd, current_solution);
+            } else if (action < 0.00) {
+                changeset = Changeset::sample_random_volume(problem, rnd, cache.m_solution);
                 gain = cache.change_musician_volume(changeset.i, changeset.volume_after);
-            } else if (action < 0.05) {
-                changeset = Changeset::sample_random_motion(problem, rnd, current_solution);
+            } else if (action < 0.02) {
+                changeset = Changeset::sample_random_motion(problem, rnd, cache.m_solution);
                 gain = cache.change_musician(changeset.i, changeset.i_after);
             } else {
-                changeset = Changeset::sample_random_motion(problem, rnd, current_solution, cache.sample_random_affected_musician(rnd));
+                changeset = Changeset::sample_random_motion(problem, rnd, cache.m_solution, cache.sample_random_affected_musician(rnd));
                 gain = cache.change_musician(changeset.i, changeset.i_after);
             }
             const double p = std::exp(double(gain) / T);
             int64_t score = cache.score();
             if (chmax(best_score, score)) {
-                changeset.apply(current_solution);
-                best_solution = current_solution;
+                best_solution = cache.m_solution;
                 ++accept;
                 LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "current":%lld, "accept":%d, "reject":%d, "T":%f})", loop, best_score, score, accept, reject, T);
             } else {
                 if (gain > 0 || rnd.next_double() < p) {
                     ++accept;
-                    changeset.apply(current_solution);
                 } else {
                     ++reject;
                     if (changeset.change_type <= 1) {
@@ -403,6 +401,81 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
                 if (loop % 1000 == 0) {
                     LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "current":%lld, "accept":%d, "reject":%d, "T":%f})", loop, best_score, score, accept, reject, T);
                 }
+            }
+        }
+        std::cout << "Volumes:";
+        for (int k = 0; k < best_solution.volumes.size(); ++k) {
+            std::cout << best_solution.volumes[k] << " ";
+            if (best_solution.volumes[k] < 0.5) {
+                best_solution.volumes[k] = 0.0;
+            } else {
+                best_solution.volumes[k] = 1.0; // to be compatible.
+            }
+        }
+        std::cout << std::endl;
+        DUMP(loop, best_score, accept, reject);
+    }
+    if (method == "SAVOL") { // SA <-> VOL
+        double T_start = 1e5;
+        double T_stop = 1e3;
+        double t = 0.0;
+        Solution current_solution = best_solution;
+        while ((t = timer.elapsed_ms()) < t_max) {
+            const double T = T_start * 1000 / (loop + 1);
+            loop++;
+            Changeset changeset;
+            int64_t gain = 0;
+            double action = rnd.next_double();
+            if (action < 0.0) {
+                changeset = Changeset::sample_random_mutation(problem, rnd, cache.m_solution);
+                gain = cache.change_musician(changeset.i, changeset.i_after) + cache.change_musician(changeset.j, changeset.j_after);
+            } else if (action < 0.0) {
+                changeset = Changeset::sample_random_delta(problem, rnd, cache.m_solution, 5.0);
+                gain = cache.change_musician(changeset.i, changeset.i_after);
+            } else {
+                changeset = Changeset::sample_random_motion(problem, rnd, cache.m_solution);
+                gain = cache.change_musician(changeset.i, changeset.i_after);
+            }
+            const double p = std::exp(double(gain) / T);
+            int64_t score = cache.score();
+            if (chmax(best_score, score)) {
+                best_solution = cache.m_solution;
+                ++accept;
+                LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "current":%lld, "accept":%d, "reject":%d, "T":%f})", loop, best_score, score, accept, reject, T);
+            } else {
+                if (gain > 0 || rnd.next_double() < p) {
+                    ++accept;
+                } else {
+                    ++reject;
+                    if (changeset.change_type <= 1) {
+                        if (changeset.i >= 0) cache.change_musician(changeset.i, changeset.i_before);
+                        if (changeset.j >= 0) cache.change_musician(changeset.j, changeset.j_before);
+                    } 
+                    if (changeset.change_type == 2) {
+                        if (changeset.i >= 0) cache.change_musician_volume(changeset.i, changeset.volume_before);
+                    } 
+                }
+                if (loop % 1000 == 0) {
+                    LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "current":%lld, "accept":%d, "reject":%d, "T":%f})", loop, best_score, score, accept, reject, T);
+                }
+            }
+
+            if (loop % 10000 == 0) {
+                Solution dummy_solution = best_solution;
+                set_optimal_volumes(problem, dummy_solution);
+                for (int i = 0; i < cache.m_solution.volumes.size(); ++i) {
+                    if (dummy_solution.volumes[i] < 5.0) {
+                        cache.m_solution.volumes[i] = 0.001;
+                    } else {
+                        cache.m_solution.volumes[i] = 1.0;
+                    }
+                }
+
+                int64_t adjust_score = -best_score;
+                best_score = cache.full_compute(best_solution);
+                adjust_score += best_score;
+                int64_t score = cache.full_compute(cache.m_solution);
+                LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "current":%lld, "accept":%d, "reject":%d, "T":%f, "adjust":%d})", loop, best_score, score, accept, reject, T, adjust_score);
             }
         }
         std::cout << "Volumes:";
