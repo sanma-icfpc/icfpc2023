@@ -324,14 +324,13 @@ inline double get_temp(double stemp, double etemp, double t, double T) {
 };
 #endif
 
-void solve(int problem_id) {
+void solve_anneal(int problem_id) {
     Timer timer;
 
-    DUMP(problem_id);
-
     std::string in_file = format("../data/problems/problem-%d.json", problem_id);
+    //std::string sol_file = format("../data/solutions/bests/solution-%d.json", problem_id);
     std::string sol_file;
-    std::string out_file_format = "../data/solutions/k3_v04_annealing/solution-%d_sub=%lld.json";
+    std::string out_file_format = "../data/solutions/bests/solution-%d.json";
     nlohmann::json data;
     {
         std::ifstream ifs(in_file);
@@ -398,11 +397,65 @@ void solve(int problem_id) {
             next_save_time += save_interval;
         }
     }
-    
+
     sol = cache.m_solution;
     auto score = compute_score(problem, sol);
     DUMP(cache.score(), score);
+    set_optimal_volumes(problem, sol);
+    score = compute_score(problem, sol);
+    DUMP(score);
     save(sol, problem_id, score);
+}
+
+void solve(int problem_id) {
+    Timer timer;
+
+    std::string in_file = format("../data/problems/problem-%d.json", problem_id);
+    std::string sol_file = format("../data/solutions/bests/solution-%d.json", problem_id);
+
+    if (!std::filesystem::exists(sol_file)) return;
+
+    std::string out_file_format = "../data/solutions/k3_v05_opt_volumes/solution-%d_sub=%lld.json";
+    nlohmann::json data;
+    {
+        std::ifstream ifs(in_file);
+        ifs >> data;
+    }
+
+    Problem problem(data);
+
+    Xorshift rnd;
+
+    auto save = [&](const Solution& sol, int problem_id, int64_t score) {
+        std::string out_file = format(out_file_format, problem_id, score);
+        std::ofstream ofs(out_file);
+        ofs << sol.to_json().dump(4);
+    };
+
+    auto sol = *create_random_solution(problem, rnd);
+    if (!sol_file.empty()) {
+        sol = Solution::from_file(sol_file);
+    }
+    else {
+        int loop_random = 0;
+        auto best_score = compute_score(problem, sol);
+        while (timer.elapsed_ms() < 3000) {
+            loop_random++;
+            auto nsol = create_random_solution(problem, rnd);
+            if (!nsol) continue;
+            auto score = compute_score(problem, *nsol);
+            if (chmax(best_score, score)) {
+                sol = *nsol;
+                DUMP(loop_random, best_score);
+            }
+        }
+    }
+
+    auto prev_score = compute_score(problem, sol);
+    set_optimal_volumes(problem, sol);
+    auto curr_score = compute_score(problem, sol);
+    auto diff = curr_score - prev_score;
+    LOG(INFO) << format("problem_id=%2d, prev_score=%12lld, curr_score=%12lld, diff=%12lld", problem_id, prev_score, curr_score, diff);
 }
 
 
@@ -412,9 +465,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     cv::utils::logging::setLogLevel(cv::utils::logging::LogLevel::LOG_LEVEL_SILENT);
 #endif
 
-    for (int problem_id = 56; problem_id <= 90; problem_id++) {
-        solve(problem_id);
-    }
+    solve_anneal(16);
 
     return 0;
 }
