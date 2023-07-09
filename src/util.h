@@ -365,6 +365,27 @@ struct CachedComputeScore {
   }
   int64_t score() const { return m_score; }
 
+  int64_t change_musician_volume(int k_changed, double curr_volume) {
+    const auto& attendees = m_problem.attendees;
+    const int A = attendees.size();
+
+    const double prev_volume = m_solution.volumes[k_changed];
+    m_solution.volumes[k_changed] = curr_volume;
+
+    int64_t old_influence = 0;
+    int64_t new_influence = 0;
+    for (auto i : std::views::iota(0, A)) {
+      if (blocker_count(k_changed, i) == 0) {
+        const double qI = (1.0 + m_harmony_cache[k_changed]) * partial_score(k_changed, i);
+        old_influence += (int64_t)std::ceil(prev_volume * qI);
+        new_influence += (int64_t)std::ceil(curr_volume * qI);
+      }
+    }
+    m_score += new_influence - old_influence;
+
+    return new_influence - old_influence;
+  }
+
   int64_t change_musician(int k_changed, const Placement& curr_placement) {
     Timer timer;
 

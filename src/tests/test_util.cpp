@@ -197,6 +197,24 @@ TEST(TestUtil, CachedComputeScore_ConsistentWithReferenceScoreDuringRandomChange
     cache.get_mean_elapsed_ms_partial());
 }
 
+TEST(TestUtil, CachedComputeScore_ConsistentWithReferenceScoreOnVolumeChange) {
+  Problem problem = Problem::from_file(42);
+  Solution solution = Solution::from_file(
+      "../data/solutions/k3_v01_random_creation/solution-42.json");
+
+  solution.set_default_volumes();
+
+  CachedComputeScore cache(problem);
+  cache.full_compute(solution);
+  EXPECT_EQ(cache.score(), compute_score(problem, solution));
+
+  cache.change_musician_volume(0, 5.0);
+  cache.change_musician_volume(1, 8.0);
+  EXPECT_EQ(cache.m_solution.volumes[0], 5.0);
+  EXPECT_EQ(cache.m_solution.volumes[1], 8.0);
+  EXPECT_EQ(cache.score(), compute_score(problem, cache.m_solution));
+}
+
 TEST(TestUtil, CachedComputeScore_HillClimbingForLongTimeForProfiling) {
   Problem problem = Problem::from_file(79);
   Xorshift rnd(42);
