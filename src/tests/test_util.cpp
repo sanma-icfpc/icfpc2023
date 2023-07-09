@@ -163,6 +163,36 @@ TEST(TestUtil, CachedComputeScore_ConsistentWithReferenceScoreDuringRandomChange
     cache.get_mean_elapsed_ms_partial());
 }
 
+TEST(TestUtil, CachedComputeScore_HillClimbingForLongTimeForProfiling) {
+  Problem problem = Problem::from_file(79);
+  Xorshift rnd(42);
+  Solution solution = *create_random_solution(problem, rnd);
+  const int M = solution.placements.size();
+
+  CachedComputeScore cache(problem);
+  cache.full_compute(solution);
+  const auto init_score = cache.score();
+
+  Timer timer;
+  while (timer.elapsed_ms() < 20.0 * 1000.0) {
+    const int i = rnd.next_int() % M;
+    auto old_placement = cache.m_solution.placements[i];
+    auto new_placement_opt = suggest_random_position(problem, cache.m_solution, rnd, i);
+    EXPECT_TRUE(bool(new_placement_opt)); // 99% sure..
+    if (cache.change_musician(i, *new_placement_opt) < 0) {
+      cache.change_musician(i, old_placement);
+    }
+  }
+
+  LOG(INFO) << format("init  score = %lld", int_to_delimited_string(init_score).c_str());
+  LOG(INFO) << format("last  score = %lld", int_to_delimited_string(cache.score()).c_str());
+  LOG(INFO) << format("final score = %lld", int_to_delimited_string(CachedComputeScore(problem).full_compute(cache.m_solution)).c_str());
+
+  LOG(INFO) << format("full calculation %.4f ms/eval, partial update %.4f ms/eval",
+    cache.get_mean_elapsed_ms_full(),
+    cache.get_mean_elapsed_ms_partial());
+}
+
 TEST(TestUtil, GuessExtension) {
   EXPECT_EQ(Problem::from_file(42).extension, Extension::lightning());
   EXPECT_EQ(Problem::from_file(56).extension, Extension::full());

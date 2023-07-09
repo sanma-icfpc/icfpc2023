@@ -18,7 +18,7 @@
     <ClCompile>
       <PreprocessorDefinitions>_SILENCE_CXX20_CISO646_REMOVED_WARNING;GOOGLE_GLOG_DLL_DECL=;USE_OPENCV</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(ProjectDir)..\..\src;$(ProjectDir)..\..\libs\opencv\include;$(ProjectDir)..\..\libs\CLI11\include;$(ProjectDir)..\..\libs\json\include;$(ProjectDir)..\..\libs\glog_vsbuild;$(ProjectDir)..\..\libs\glog\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>/openmp %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/source-charset:utf-8 /openmp %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
@@ -40,7 +40,7 @@
     <ClCompile>
       <PreprocessorDefinitions>_SILENCE_CXX20_CISO646_REMOVED_WARNING;GOOGLE_GLOG_DLL_DECL=;USE_OPENCV</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>$(ProjectDir)..\..\src;$(ProjectDir)..\..\libs\opencv\include;$(ProjectDir)..\..\libs\CLI11\include;$(ProjectDir)..\..\libs\json\include;$(ProjectDir)..\..\libs\glog_vsbuild;$(ProjectDir)..\..\libs\glog\src;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <AdditionalOptions>/openmp %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/source-charset:utf-8 /openmp %(AdditionalOptions)</AdditionalOptions>
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>

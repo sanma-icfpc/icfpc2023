@@ -466,7 +466,8 @@ struct CachedComputeScore {
       }
     }
 
-#pragma omp parallel for reduction(+:m_score)
+    int64_t score_diff = 0;
+#pragma omp parallel for reduction(+:score_diff)
     for (auto k_src = 0; k_src < M; ++k_src) {
       for (auto i : std::views::iota(0, A)) {
         for (auto k_other : std::views::iota(0, M)) {
@@ -485,9 +486,10 @@ struct CachedComputeScore {
         const bool audible = blocker_count(k_src, i) == 0;
         const int64_t influence = (int64_t)ceil(1e6 * attendees[i].tastes[musicians[k_src]] / distance_squared(placements[k_src], attendees[i]));
         partial_score(k_src, i) = influence;
-        m_score += audible ? (int64_t)ceil((1.0 + m_harmony_cache[k_src]) * influence) : 0;
+        score_diff += audible ? (int64_t)ceil((1.0 + m_harmony_cache[k_src]) * influence) : 0;
       }
     }
+    m_score += score_diff;
 
     m_accum_elapsed_ms_full += timer.elapsed_ms();
     m_call_count_full += 1;
