@@ -155,14 +155,19 @@ inline double is_intersect(double cx,
   if (false) {
     // 1.19->1.23ms/partialeval
     // full BBOX test
-    if (std::min(cx + r, std::max(x1, x2)) - std::max(cx - r, std::min(x1, x2)) >= 0
-    && std::min(cy + r, std::max(y1, y2)) - std::max(cy - r, std::min(y1, y2)) >= 0) {
-     return false;
+    if (std::min(cx + r, std::max(x1, x2)) -
+                std::max(cx - r, std::min(x1, x2)) >=
+            0 &&
+        std::min(cy + r, std::max(y1, y2)) -
+                std::max(cy - r, std::min(y1, y2)) >=
+            0) {
+      return false;
     }
     // 1.19->1.08ms/partialeval
     // separable test
-    if (std::max(x1, x2) > cx - r || std::max(y1, y2) > cy - r || cx + r < std::min(x1, x2) || cy + r < std::min(y1, y2)) {
-     return false;
+    if (std::max(x1, x2) > cx - r || std::max(y1, y2) > cy - r ||
+        cx + r < std::min(x1, x2) || cy + r < std::min(y1, y2)) {
+      return false;
     }
   }
   x1 -= cx;
@@ -219,11 +224,20 @@ inline bool are_musicians_too_close(const Placement& p1,
          k_musician_spacing_radius * k_musician_spacing_radius;
 }
 
-inline std::optional<Placement> suggest_random_position(const Problem& problem, const Solution& solution, Xorshift& rnd, int i, int max_retry=100) {
+inline std::optional<Placement> suggest_random_position(
+    const Problem& problem,
+    const Solution& solution,
+    Xorshift& rnd,
+    int i,
+    int max_retry = 100) {
   for (int retry = 0; retry < max_retry; ++retry) {
     Placement placement{
-        problem.stage_x + k_musician_spacing_radius + rnd.next_double() * (problem.stage_w - k_musician_spacing_radius * 2),
-        problem.stage_y + k_musician_spacing_radius + rnd.next_double() * (problem.stage_h - k_musician_spacing_radius * 2)};
+        problem.stage_x + k_musician_spacing_radius +
+            rnd.next_double() *
+                (problem.stage_w - k_musician_spacing_radius * 2),
+        problem.stage_y + k_musician_spacing_radius +
+            rnd.next_double() *
+                (problem.stage_h - k_musician_spacing_radius * 2)};
     if (!is_musician_on_stage(problem, placement))
       continue;
     bool conflict = false;
@@ -290,8 +304,9 @@ struct CachedComputeScore {
   const int m_num_pillars;
   Solution m_solution;
 
-// private:
-  std::vector<double> m_harmony_cache; // 1 + m_harmony_cache[k] is the harmony.
+  // private:
+  std::vector<double>
+      m_harmony_cache;  // 1 + m_harmony_cache[k] is the harmony.
   std::vector<int64_t> m_score_cache;
   std::vector<uint8_t> m_audible_cache;
   std::vector<int16_t> m_blocker_count_cache;
@@ -309,7 +324,8 @@ struct CachedComputeScore {
     if (m_affected_musicians_indices.empty()) {
       return rnd.next_int() % m_num_musicians;
     } else {
-      return m_affected_musicians_indices[rnd.next_int() % m_affected_musicians_indices.size()];
+      return m_affected_musicians_indices[rnd.next_int() %
+                                          m_affected_musicians_indices.size()];
     }
   }
 
@@ -320,24 +336,28 @@ struct CachedComputeScore {
     return m_accum_elapsed_ms_full / (m_call_count_full + 1e-9);
   }
   void report() const {
-    LOG(INFO) << format("PID=%d: full calculation %.4f ms/eval (%d evals), partial update %.4f ms/eval (%d evals)",
-      m_problem.problem_id,
-      get_mean_elapsed_ms_full(), m_call_count_full,
-      get_mean_elapsed_ms_partial(), m_call_count_partial);
+    LOG(INFO) << format(
+        "PID=%d: full calculation %.4f ms/eval (%d evals), partial update %.4f "
+        "ms/eval (%d evals)",
+        m_problem.problem_id, get_mean_elapsed_ms_full(), m_call_count_full,
+        get_mean_elapsed_ms_partial(), m_call_count_partial);
   }
-
 
  public:
   CachedComputeScore(const Problem& problem)
       : m_problem(problem),
         m_num_attendees(problem.attendees.size()),
         m_num_musicians(problem.musicians.size()),
-        m_num_pillars(problem.extension.consider_pillars ? problem.pillars.size() : 0),
+        m_num_pillars(
+            problem.extension.consider_pillars ? problem.pillars.size() : 0),
         m_harmony_cache(m_num_musicians, 0.0),
         m_score_cache(problem.attendees.size() * problem.musicians.size(), 0),
-        m_audible_cache(problem.attendees.size() * problem.musicians.size() * problem.musicians.size(), 1),
-        m_blocker_count_cache(problem.attendees.size() * problem.musicians.size(), 0) {
-  }
+        m_audible_cache(problem.attendees.size() * problem.musicians.size() *
+                            problem.musicians.size(),
+                        1),
+        m_blocker_count_cache(
+            problem.attendees.size() * problem.musicians.size(),
+            0) {}
 
   int64_t& partial_score(int k, int i) {
 #if 0
@@ -361,7 +381,9 @@ struct CachedComputeScore {
         LOG_ASSERT(k_src != k_other); // not illegal but strange.
         LOG_ASSERT(0 <= i && i < m_num_attendees);
 #endif
-    return m_audible_cache[(k_src * m_num_musicians + k_other) * m_num_attendees + i];
+    return m_audible_cache[(k_src * m_num_musicians + k_other) *
+                               m_num_attendees +
+                           i];
   }
   int64_t score() const { return m_score; }
 
@@ -376,7 +398,8 @@ struct CachedComputeScore {
     int64_t new_influence = 0;
     for (auto i : std::views::iota(0, A)) {
       if (blocker_count(k_changed, i) == 0) {
-        const double qI = (1.0 + m_harmony_cache[k_changed]) * partial_score(k_changed, i);
+        const double qI =
+            (1.0 + m_harmony_cache[k_changed]) * partial_score(k_changed, i);
         old_influence += (int64_t)std::ceil(prev_volume * qI);
         new_influence += (int64_t)std::ceil(curr_volume * qI);
       }
@@ -410,35 +433,53 @@ struct CachedComputeScore {
     // pillarはblocker_countに加味されているので特別扱いする必要は無い
     int64_t old_influence = 0;
     int64_t new_influence = 0;
-#pragma omp parallel for reduction(+:old_influence) reduction(+:new_influence)
+#pragma omp parallel for reduction(+ : old_influence) \
+    reduction(+ : new_influence)
     for (auto k_src = 0; k_src < M; ++k_src) {
-        if (k_changed == k_src) continue;
+      if (k_changed == k_src)
+        continue;
 
-        double old_harmony = 0.0, new_harmony = 0.0;
-        if (m_problem.extension.consider_harmony) {
-          if (musicians[k_changed] == musicians[k_src]) {
-            old_harmony = m_harmony_cache[k_src];
-            m_harmony_cache[k_src] += inverse_distance(placements[k_src], curr_placement) - inverse_distance(placements[k_src], prev_placement);
-            new_harmony = m_harmony_cache[k_src];
-          }
+      double old_harmony = 0.0, new_harmony = 0.0;
+      if (m_problem.extension.consider_harmony) {
+        if (musicians[k_changed] == musicians[k_src]) {
+          old_harmony = m_harmony_cache[k_src];
+          m_harmony_cache[k_src] +=
+              inverse_distance(placements[k_src], curr_placement) -
+              inverse_distance(placements[k_src], prev_placement);
+          new_harmony = m_harmony_cache[k_src];
         }
+      }
 
-        for (auto i : std::views::iota(0, A)) {
-            const bool old_audible = partial_audible(k_src, k_changed, i);
-            const bool new_audible = !is_intersect(placements[k_changed], k_musician_radius, placements[k_src], attendees[i]);
-            partial_audible(k_src, k_changed, i) = new_audible; // この二重ループでは全て独立
+      for (auto i : std::views::iota(0, A)) {
+        const bool old_audible = partial_audible(k_src, k_changed, i);
+        const bool new_audible =
+            !is_intersect(placements[k_changed], k_musician_radius,
+                          placements[k_src], attendees[i]);
+        partial_audible(k_src, k_changed, i) =
+            new_audible;  // この二重ループでは全て独立
 
-            const auto old_blocker_count = blocker_count(k_src, i);
-            if (old_audible && !new_audible) blocker_count(k_src, i) += 1;
-            if (!old_audible && new_audible) blocker_count(k_src, i) -= 1;
-            const auto new_blocker_count = blocker_count(k_src, i);
+        const auto old_blocker_count = blocker_count(k_src, i);
+        if (old_audible && !new_audible)
+          blocker_count(k_src, i) += 1;
+        if (!old_audible && new_audible)
+          blocker_count(k_src, i) -= 1;
+        const auto new_blocker_count = blocker_count(k_src, i);
 
-            if (m_compute_affected && (old_blocker_count == 0) != (new_blocker_count == 0)) {
-              musicians_affected[k_src] = 1;
-            }
-            old_influence += old_blocker_count == 0 ? (int64_t)std::ceil(m_solution.volumes[k_src] * (1.0 + old_harmony) * partial_score(k_src, i)) : 0;
-            new_influence += new_blocker_count == 0 ? (int64_t)std::ceil(m_solution.volumes[k_src] * (1.0 + new_harmony) * partial_score(k_src, i)) : 0;
+        if (m_compute_affected &&
+            (old_blocker_count == 0) != (new_blocker_count == 0)) {
+          musicians_affected[k_src] = 1;
         }
+        old_influence += old_blocker_count == 0
+                             ? (int64_t)std::ceil(m_solution.volumes[k_src] *
+                                                  (1.0 + old_harmony) *
+                                                  partial_score(k_src, i))
+                             : 0;
+        new_influence += new_blocker_count == 0
+                             ? (int64_t)std::ceil(m_solution.volumes[k_src] *
+                                                  (1.0 + new_harmony) *
+                                                  partial_score(k_src, i))
+                             : 0;
+      }
     }
 
     if (m_compute_affected) {
@@ -452,32 +493,51 @@ struct CachedComputeScore {
     const double old_harmony = m_harmony_cache[k_changed];
     if (m_problem.extension.consider_harmony) {
       for (auto k_other : std::views::iota(0, m_num_musicians)) {
-        if (k_other != k_changed && musicians[k_changed] == musicians[k_other]) {
-          m_harmony_cache[k_changed] += inverse_distance(placements[k_other], curr_placement) - inverse_distance(placements[k_other], prev_placement);
+        if (k_other != k_changed &&
+            musicians[k_changed] == musicians[k_other]) {
+          m_harmony_cache[k_changed] +=
+              inverse_distance(placements[k_other], curr_placement) -
+              inverse_distance(placements[k_other], prev_placement);
         }
       }
     }
     const double new_harmony = m_harmony_cache[k_changed];
 
     // 移動したmusicianが得る効果の増減
-#pragma omp parallel for reduction(+:old_influence) reduction(+:new_influence)
+#pragma omp parallel for reduction(+ : old_influence) \
+    reduction(+ : new_influence)
     for (auto i = 0; i < A; ++i) {
-        const int64_t old_blocker_count = blocker_count(k_changed, i);
-        int64_t new_blocker_count = 0;
-        for (auto k_other : std::views::iota(0, M)) {
-            if (k_other == k_changed) continue;
-            partial_audible(k_changed, k_other, i) = !is_intersect(placements[k_other], k_musician_radius, placements[k_changed], attendees[i]);
-            if (!partial_audible(k_changed, k_other, i)) new_blocker_count++;
+      const int64_t old_blocker_count = blocker_count(k_changed, i);
+      int64_t new_blocker_count = 0;
+      for (auto k_other : std::views::iota(0, M)) {
+        if (k_other == k_changed)
+          continue;
+        partial_audible(k_changed, k_other, i) =
+            !is_intersect(placements[k_other], k_musician_radius,
+                          placements[k_changed], attendees[i]);
+        if (!partial_audible(k_changed, k_other, i))
+          new_blocker_count++;
+      }
+      for (auto p : std::views::iota(0, P)) {
+        if (is_intersect(pillars[p], pillars[p].r, placements[k_changed],
+                         attendees[i])) {
+          new_blocker_count++;
         }
-        for (auto p : std::views::iota(0, P)) {
-          if (is_intersect(pillars[p], pillars[p].r, placements[k_changed], attendees[i])) {
-            new_blocker_count++;
-          }
-        }
-        blocker_count(k_changed, i) = new_blocker_count;
-        old_influence += old_blocker_count == 0 ? (int64_t)std::ceil(m_solution.volumes[k_changed] * (1.0 + old_harmony) * partial_score(k_changed, i)) : 0;
-        partial_score(k_changed, i) = (int64_t)std::ceil(1e6 * attendees[i].tastes[musicians[k_changed]] / distance_squared(placements[k_changed], attendees[i]));
-        new_influence += new_blocker_count == 0 ? (int64_t)std::ceil(m_solution.volumes[k_changed] * (1.0 + new_harmony) * partial_score(k_changed, i)) : 0;
+      }
+      blocker_count(k_changed, i) = new_blocker_count;
+      old_influence += old_blocker_count == 0
+                           ? (int64_t)std::ceil(m_solution.volumes[k_changed] *
+                                                (1.0 + old_harmony) *
+                                                partial_score(k_changed, i))
+                           : 0;
+      partial_score(k_changed, i) = (int64_t)std::ceil(
+          1e6 * attendees[i].tastes[musicians[k_changed]] /
+          distance_squared(placements[k_changed], attendees[i]));
+      new_influence += new_blocker_count == 0
+                           ? (int64_t)std::ceil(m_solution.volumes[k_changed] *
+                                                (1.0 + new_harmony) *
+                                                partial_score(k_changed, i))
+                           : 0;
     }
 
     m_score += new_influence - old_influence;
@@ -520,26 +580,34 @@ struct CachedComputeScore {
     }
 
     int64_t score_diff = 0;
-#pragma omp parallel for reduction(+:score_diff)
+#pragma omp parallel for reduction(+ : score_diff)
     for (auto k_src = 0; k_src < M; ++k_src) {
       for (auto i : std::views::iota(0, A)) {
         for (auto k_other : std::views::iota(0, M)) {
           if (k_src != k_other) {
-            partial_audible(k_src, k_other, i) = !is_intersect(placements[k_other], k_musician_radius, placements[k_src], attendees[i]);
+            partial_audible(k_src, k_other, i) =
+                !is_intersect(placements[k_other], k_musician_radius,
+                              placements[k_src], attendees[i]);
             if (!partial_audible(k_src, k_other, i)) {
-                blocker_count(k_src, i) += 1;
+              blocker_count(k_src, i) += 1;
             }
           }
         }
         for (auto p : std::views::iota(0, P)) {
-          if (is_intersect(pillars[p], pillars[p].r, placements[k_src], attendees[i])) {
+          if (is_intersect(pillars[p], pillars[p].r, placements[k_src],
+                           attendees[i])) {
             blocker_count(k_src, i) += 1;
           }
         }
         const bool audible = blocker_count(k_src, i) == 0;
-        const int64_t influence = (int64_t)ceil(1e6 * attendees[i].tastes[musicians[k_src]] / distance_squared(placements[k_src], attendees[i]));
+        const int64_t influence =
+            (int64_t)ceil(1e6 * attendees[i].tastes[musicians[k_src]] /
+                          distance_squared(placements[k_src], attendees[i]));
         partial_score(k_src, i) = influence;
-        score_diff += audible ? (int64_t)ceil(m_solution.volumes[k_src] * (1.0 + m_harmony_cache[k_src]) * influence) : 0;
+        score_diff +=
+            audible ? (int64_t)ceil(m_solution.volumes[k_src] *
+                                    (1.0 + m_harmony_cache[k_src]) * influence)
+                    : 0;
       }
     }
     m_score += score_diff;
@@ -602,12 +670,15 @@ inline bool is_valid_solution(const Problem& problem,
     }
   }
 
-  CHECK_VALID(solution.volumes.empty() || solution.volumes.size() == problem.musicians.size(),
-    format("invalid volumes of size %d where musicians are %d", solution.volumes.size(), problem.musicians.size()));
+  CHECK_VALID(solution.volumes.empty() ||
+                  solution.volumes.size() == problem.musicians.size(),
+              format("invalid volumes of size %d where musicians are %d",
+                     solution.volumes.size(), problem.musicians.size()));
   if (!solution.volumes.empty()) {
     for (int i = 0; i < solution.volumes.size(); ++i) {
-      CHECK_VALID(0.0 <= solution.volumes[i] && solution.volumes[i] <= 10.0,
-        format("volume[%d] = %f out of range", i, solution.volumes[i]));
+      CHECK_VALID(
+          0.0 <= solution.volumes[i] && solution.volumes[i] <= 10.0,
+          format("volume[%d] = %f out of range", i, solution.volumes[i]));
     }
   }
 
@@ -677,7 +748,8 @@ inline int64_t compute_score(const Problem& problem, const Solution& solution) {
 #pragma omp critical(crit_sct)
       {
         double impact = ceil(1e6 * taste / d2);
-        score += (int64_t)ceil((is_volume_available ? solution.volumes[k] : 1.0) * qk * impact);
+        score += (int64_t)ceil(
+            (is_volume_available ? solution.volumes[k] : 1.0) * qk * impact);
       }
     }
   }
@@ -685,78 +757,84 @@ inline int64_t compute_score(const Problem& problem, const Solution& solution) {
   return score;
 }
 
-inline std::vector<int64_t> compute_score_each_musician(const Problem& problem, const Solution& solution) {
-    const auto& musicians = problem.musicians;
-    const auto& attendees = problem.attendees;
-    const auto& pillars = problem.pillars;
-    const auto& placements = solution.placements;
-    const auto& extension = problem.extension;
-    const bool is_volume_available = solution.volumes.size() == musicians.size();
+inline std::vector<int64_t> compute_score_each_musician(
+    const Problem& problem,
+    const Solution& solution) {
+  const auto& musicians = problem.musicians;
+  const auto& attendees = problem.attendees;
+  const auto& pillars = problem.pillars;
+  const auto& placements = solution.placements;
+  const auto& extension = problem.extension;
+  const bool is_volume_available = solution.volumes.size() == musicians.size();
 
-    std::vector<double> harmony(musicians.size(), 1.0);
-    if (extension.consider_harmony) {
-#pragma omp parallel for
-        for (int k = 0; k < musicians.size(); k++) {
-            int instrument = musicians[k];
-            auto&& p1 = placements[k];
-            double harmonyk = 1;
-            for (int kk = 0; kk < musicians.size(); kk++) {
-                if (k != kk && instrument == musicians[kk]) {
-                    auto&& p2 = placements[kk];
-                    double distance = std::hypot(p1.x - p2.x, p1.y - p2.y);
-                    double q = 1.0 / distance;
-                    harmonyk += q;
-                }
-            }
-            harmony[k] = harmonyk;
-        }
-    }
-
-    std::vector<int64_t> scores(musicians.size());
+  std::vector<double> harmony(musicians.size(), 1.0);
+  if (extension.consider_harmony) {
 #pragma omp parallel for
     for (int k = 0; k < musicians.size(); k++) {
-        int t = problem.musicians[k];
-        double mx = placements[k].x, my = placements[k].y;
-        for (int i = 0; i < attendees.size(); i++) {
-            double ax = attendees[i].x, ay = attendees[i].y;
-            bool blocked = false;
-            for (int kk = 0; kk < musicians.size(); kk++) {
-                double cx = placements[kk].x, cy = placements[kk].y;
-                if (k != kk && is_intersect(cx, cy, 5.0, mx, my, ax, ay)) {
-                    blocked = true;
-                    break;
-                }
-            }
-
-            for (int p = 0; p < pillars.size(); p++) {
-                if (is_intersect(pillars[p], pillars[p].r, placements[k],
-                    attendees[i])) {
-                    blocked = true;
-                    break;
-                }
-            }
-            if (blocked)
-                continue;
-
-            double d2 = (ax - mx) * (ax - mx) + (ay - my) * (ay - my);
-            double taste = attendees[i].tastes[t];
-            double qk = harmony[k];
-#pragma omp critical(crit_sct)
-            {
-                double impact = ceil(1e6 * taste / d2);
-                scores[k] += (int64_t)ceil((is_volume_available ? solution.volumes[k] : 1.0) * qk * impact);
-            }
+      int instrument = musicians[k];
+      auto&& p1 = placements[k];
+      double harmonyk = 1;
+      for (int kk = 0; kk < musicians.size(); kk++) {
+        if (k != kk && instrument == musicians[kk]) {
+          auto&& p2 = placements[kk];
+          double distance = std::hypot(p1.x - p2.x, p1.y - p2.y);
+          double q = 1.0 / distance;
+          harmonyk += q;
         }
+      }
+      harmony[k] = harmonyk;
     }
+  }
 
-    return scores;
+  std::vector<int64_t> scores(musicians.size());
+#pragma omp parallel for
+  for (int k = 0; k < musicians.size(); k++) {
+    int t = problem.musicians[k];
+    double mx = placements[k].x, my = placements[k].y;
+    for (int i = 0; i < attendees.size(); i++) {
+      double ax = attendees[i].x, ay = attendees[i].y;
+      bool blocked = false;
+      for (int kk = 0; kk < musicians.size(); kk++) {
+        double cx = placements[kk].x, cy = placements[kk].y;
+        if (k != kk && is_intersect(cx, cy, 5.0, mx, my, ax, ay)) {
+          blocked = true;
+          break;
+        }
+      }
+
+      for (int p = 0; p < pillars.size(); p++) {
+        if (is_intersect(pillars[p], pillars[p].r, placements[k],
+                         attendees[i])) {
+          blocked = true;
+          break;
+        }
+      }
+      if (blocked)
+        continue;
+
+      double d2 = (ax - mx) * (ax - mx) + (ay - my) * (ay - my);
+      double taste = attendees[i].tastes[t];
+      double qk = harmony[k];
+#pragma omp critical(crit_sct)
+      {
+        double impact = ceil(1e6 * taste / d2);
+        scores[k] += (int64_t)ceil(
+            (is_volume_available ? solution.volumes[k] : 1.0) * qk * impact);
+      }
+    }
+  }
+
+  return scores;
 }
 
-void set_optimal_volumes(const Problem& problem, Solution& solution, double amplitude = 10.0) {
-    auto scores = compute_score_each_musician(problem, solution);
-    for (int musician_id = 0; musician_id < problem.musicians.size(); musician_id++) {
-        solution.volumes[musician_id] = scores[musician_id] <= 0 ? 0.0 : amplitude;
-    }
+void set_optimal_volumes(const Problem& problem,
+                         Solution& solution,
+                         double amplitude = 10.0) {
+  auto scores = compute_score_each_musician(problem, solution);
+  for (int musician_id = 0; musician_id < problem.musicians.size();
+       musician_id++) {
+    solution.volumes[musician_id] = scores[musician_id] <= 0 ? 0.0 : amplitude;
+  }
 }
 
 struct SegmentMap : public std::map<double, double> {
