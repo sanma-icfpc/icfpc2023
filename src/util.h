@@ -152,6 +152,19 @@ inline double is_intersect(double cx,
                            double y1,
                            double x2,
                            double y2) {
+  if (false) {
+    // 1.19->1.23ms/partialeval
+    // full BBOX test
+    if (std::min(cx + r, std::max(x1, x2)) - std::max(cx - r, std::min(x1, x2)) >= 0
+    && std::min(cy + r, std::max(y1, y2)) - std::max(cy - r, std::min(y1, y2)) >= 0) {
+     return false;
+    }
+    // 1.19->1.08ms/partialeval
+    // separable test
+    if (std::max(x1, x2) > cx - r || std::max(y1, y2) > cy - r || cx + r < std::min(x1, x2) || cy + r < std::min(y1, y2)) {
+     return false;
+    }
+  }
   x1 -= cx;
   x2 -= cx;
   y1 -= cy;

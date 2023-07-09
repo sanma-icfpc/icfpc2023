@@ -184,9 +184,9 @@ TEST(TestUtil, CachedComputeScore_HillClimbingForLongTimeForProfiling) {
     }
   }
 
-  LOG(INFO) << format("init  score = %lld", int_to_delimited_string(init_score).c_str());
-  LOG(INFO) << format("last  score = %lld", int_to_delimited_string(cache.score()).c_str());
-  LOG(INFO) << format("final score = %lld", int_to_delimited_string(CachedComputeScore(problem).full_compute(cache.m_solution)).c_str());
+  LOG(INFO) << format("init  score = %s", int_to_delimited_string(init_score).c_str());
+  LOG(INFO) << format("last  score = %s", int_to_delimited_string(cache.score()).c_str());
+  LOG(INFO) << format("final score = %s", int_to_delimited_string(CachedComputeScore(problem).full_compute(cache.m_solution)).c_str());
 
   LOG(INFO) << format("full calculation %.4f ms/eval, partial update %.4f ms/eval",
     cache.get_mean_elapsed_ms_full(),
