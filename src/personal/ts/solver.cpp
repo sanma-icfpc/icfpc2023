@@ -1,3 +1,13 @@
+#ifdef USE_OPENCV
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-enum-enum-conversion"
+#include <opencv2/core.hpp>
+#include <opencv2/core/utils/logger.hpp>
+#include <opencv2/imgproc.hpp>
+#include <opencv2/highgui.hpp>
+#pragma GCC diagnostic pop
+#endif
+
 #include "../../../src/spec.h"
 #include "../../../src/util.h"
 
@@ -51,7 +61,7 @@ struct Changeset {
             solution.placements[j], solution.placements[i],
         };
     }
-    static Changeset sample_random_delta(const Problem& problem, Xorshift& rnd, const Solution& solution) {
+    static Changeset sample_random_delta(const Problem& problem, Xorshift& rnd, const Solution& solution, double max_delta) {
         const size_t N = solution.placements.size();
         const int i = rnd.next_int() % N;
 
@@ -62,8 +72,8 @@ struct Changeset {
 
         for (int retry = 0; retry < 100; ++retry) {
             Placement placement = solution.placements[i];
-            placement.x += rnd.next_double() * 3.0 - 1.5;
-            placement.y += rnd.next_double() * 3.0 - 1.5;
+            placement.x += (rnd.next_double() * 2.0 - 1.0) * max_delta;
+            placement.y += (rnd.next_double() * 2.0 - 1.0) * max_delta;
             if (!is_musician_on_stage(problem, placement)) continue;
             bool conflict = false;
             for (int kk = 0; kk < solution.placements.size(); ++kk) {
@@ -84,6 +94,10 @@ struct Changeset {
         const size_t N = solution.placements.size();
         const int i = rnd.next_int() % N;
 
+        return sample_random_motion(problem, rnd, solution, i);
+    }
+
+    static Changeset sample_random_motion(const Problem& problem, Xorshift& rnd, const Solution& solution, int i) {
         Changeset chg { 1, i, -1, 
             solution.placements[i], solution.placements[i], 
             {0.0, 0.0}, {0.0, 0.0},
@@ -165,11 +179,14 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
 
     int loop = 0;
     int accept = 0, reject = 0;
-    if (method == "HILLCLIMB") {
+    if (method == "HC") {
         while (timer.elapsed_ms() < t_max) {
             loop++;
             if (num_force_reset_iter > 0 &&  loop % num_force_reset_iter == 0) {
+                int64_t adjust_score = -best_score;
                 best_score = cache.full_compute(best_solution);
+                adjust_score += best_score;
+                LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "accept":%d, "reject":%d, "adjust":%d})", loop, best_score, accept, reject, adjust_score);
             }
             Changeset changeset;
             if (rnd.next_int() % 100 <= 1) {
@@ -194,6 +211,70 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
         DUMP(loop);
         DUMP(best_score);
     }
+    if (method == "HCAFFECTED") {
+        cache.m_compute_affected = true;
+        while (timer.elapsed_ms() < t_max) {
+            loop++;
+            if (num_force_reset_iter > 0 &&  loop % num_force_reset_iter == 0) {
+                int64_t adjust_score = -best_score;
+                best_score = cache.full_compute(best_solution);
+                adjust_score += best_score;
+                LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "accept":%d, "reject":%d, "adjust":%d})", loop, best_score, accept, reject, adjust_score);
+            }
+            Changeset changeset;
+            if (rnd.next_int() % 100 <= 1) {
+                changeset = Changeset::sample_random_mutation(problem, rnd, best_solution);
+                cache.change_musician(changeset.i, changeset.i_after);
+                cache.change_musician(changeset.j, changeset.j_after);
+            } else {
+                int i = 0;
+                if (rnd.next_double() < 0.1) {
+                    i = rnd.next_int() % problem.musicians.size();
+                } else {
+                    i = cache.sample_random_affected_musician(rnd);
+                }
+                changeset = Changeset::sample_random_motion(problem, rnd, best_solution, i);
+                cache.change_musician(changeset.i, changeset.i_after);
+            }
+            int64_t score = cache.score();
+            if (chmax(best_score, score)) {
+                changeset.apply(best_solution);
+                ++accept;
+            } else {
+                if (changeset.i >= 0) cache.change_musician(changeset.i, changeset.i_before);
+                if (changeset.j >= 0) cache.change_musician(changeset.j, changeset.j_before);
+                ++reject;
+            }
+            LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "accept":%d, "reject":%d})", loop, best_score, accept, reject);
+        }
+        DUMP(loop);
+        DUMP(best_score);
+    }
+    if (method == "NEARHC") {
+        while (timer.elapsed_ms() < t_max) {
+            loop++;
+            if (num_force_reset_iter > 0 &&  loop % num_force_reset_iter == 0) {
+                int64_t adjust_score = -best_score;
+                best_score = cache.full_compute(cache.m_solution);
+                adjust_score += best_score;
+                LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "accept":%d, "reject":%d, "adjust":%d})", loop, best_score, accept, reject, adjust_score);
+            }
+            Changeset changeset;
+            changeset = Changeset::sample_random_delta(problem, rnd, cache.m_solution, 100.0);
+            cache.change_musician(changeset.i, changeset.i_after);
+            int64_t score = cache.score();
+            if (chmax(best_score, score)) {
+                best_solution = cache.m_solution;
+                ++accept;
+            } else {
+                if (changeset.i >= 0) cache.change_musician(changeset.i, changeset.i_before);
+                ++reject;
+            }
+            LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "accept":%d, "reject":%d})", loop, best_score, accept, reject);
+        }
+        DUMP(loop);
+        DUMP(best_score);
+    }
     if (method == "LINEHC") {
         while (timer.elapsed_ms() < t_max) {
             loop++;
@@ -201,7 +282,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
                 int64_t adjust_score = -best_score;
                 best_score = cache.full_compute(cache.m_solution);
                 adjust_score += best_score;
-                LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "current":%lld, "accept":%d, "reject":%d, "adjust":%d})", loop, best_score, accept, reject, adjust_score);
+                LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "accept":%d, "reject":%d, "adjust":%d})", loop, best_score, accept, reject, adjust_score);
             }
             // 適当な点を定め、そこまでの間を分割して試して最も良いものを選ぶ
             auto changeset_goal = Changeset::sample_random_motion(problem, rnd, cache.m_solution);
@@ -238,6 +319,11 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
 
             if (loop % 100 == 0) {
                 LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "accept":%d, "reject":%d})", loop, best_score, accept, reject);
+                cv::Mat img = cache.m_solution.to_mat(problem);
+                cv::Mat resized;
+                cv::resize(img, resized, cv::Size(img.cols / 4, img.rows / 4)); // Resize the image
+                cv::imshow("img", resized);
+                cv::waitKey(1);
             }
         }
         DUMP(loop);
@@ -266,7 +352,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
                 changeset = Changeset::sample_random_mutation(problem, rnd, current_solution);
                 gain = cache.change_musician(changeset.i, changeset.i_after) + cache.change_musician(changeset.j, changeset.j_after);
             } else if (action < 0.0) {
-                changeset = Changeset::sample_random_delta(problem, rnd, current_solution);
+                changeset = Changeset::sample_random_delta(problem, rnd, current_solution, 5.0);
                 gain = cache.change_musician(changeset.i, changeset.i_after);
             } else {
                 changeset = Changeset::sample_random_motion(problem, rnd, current_solution);

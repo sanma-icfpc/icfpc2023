@@ -282,7 +282,6 @@ inline std::optional<Solution> create_random_solution(const Problem& problem,
   return solution;
 }
 
-// still has some bugs..
 struct CachedComputeScore {
  public:
   const Problem& m_problem;
@@ -302,6 +301,17 @@ struct CachedComputeScore {
   int m_call_count_partial = 0;
   double m_accum_elapsed_ms_full = 0.0;
   int m_call_count_full = 0;
+
+  bool m_compute_affected = true;
+  std::vector<int> m_affected_musicians_indices;
+
+  int sample_random_affected_musician(Xorshift& rnd) const {
+    if (m_affected_musicians_indices.empty()) {
+      return rnd.next_int() % m_num_musicians;
+    } else {
+      return m_affected_musicians_indices[rnd.next_int() % m_affected_musicians_indices.size()];
+    }
+  }
 
   double get_mean_elapsed_ms_partial() const {
     return m_accum_elapsed_ms_partial / (m_call_count_partial + 1e-9);
@@ -369,6 +379,12 @@ struct CachedComputeScore {
     const int P = pillars.size();
     LOG_ASSERT(M == placements.size());
 
+    std::vector<uint8_t> musicians_affected;
+    if (m_compute_affected) {
+      musicians_affected.assign(M, 0);
+      m_affected_musicians_indices.clear();
+    }
+
     // スコアの更新前に、ブロック状況の更新が必要(ブロックは新旧両方を同時に利用するため)
     // pillarはblocker_countに加味されているので特別扱いする必要は無い
     int64_t old_influence = 0;
@@ -396,9 +412,20 @@ struct CachedComputeScore {
             if (!old_audible && new_audible) blocker_count(k_src, i) -= 1;
             const auto new_blocker_count = blocker_count(k_src, i);
 
+            if (m_compute_affected && (old_blocker_count == 0) != (new_blocker_count == 0)) {
+              musicians_affected[k_src] = 1;
+            }
             old_influence += old_blocker_count == 0 ? (int64_t)std::ceil(m_solution.volumes[k_src] * (1.0 + old_harmony) * partial_score(k_src, i)) : 0;
             new_influence += new_blocker_count == 0 ? (int64_t)std::ceil(m_solution.volumes[k_src] * (1.0 + new_harmony) * partial_score(k_src, i)) : 0;
         }
+    }
+
+    if (m_compute_affected) {
+      for (auto k : std::views::iota(0, M)) {
+        if (musicians_affected[k]) {
+          m_affected_musicians_indices.push_back(k);
+        }
+      }
     }
 
     const double old_harmony = m_harmony_cache[k_changed];
