@@ -637,6 +637,80 @@ inline int64_t compute_score(const Problem& problem, const Solution& solution) {
   return score;
 }
 
+inline std::vector<int64_t> compute_score_each_musician(const Problem& problem, const Solution& solution) {
+    const auto& musicians = problem.musicians;
+    const auto& attendees = problem.attendees;
+    const auto& pillars = problem.pillars;
+    const auto& placements = solution.placements;
+    const auto& extension = problem.extension;
+    const bool is_volume_available = solution.volumes.size() == musicians.size();
+
+    std::vector<double> harmony(musicians.size(), 1.0);
+    if (extension.consider_harmony) {
+#pragma omp parallel for
+        for (int k = 0; k < musicians.size(); k++) {
+            int instrument = musicians[k];
+            auto&& p1 = placements[k];
+            double harmonyk = 1;
+            for (int kk = 0; kk < musicians.size(); kk++) {
+                if (k != kk && instrument == musicians[kk]) {
+                    auto&& p2 = placements[kk];
+                    double distance = std::hypot(p1.x - p2.x, p1.y - p2.y);
+                    double q = 1.0 / distance;
+                    harmonyk += q;
+                }
+            }
+            harmony[k] = harmonyk;
+        }
+    }
+
+    std::vector<int64_t> scores(musicians.size());
+#pragma omp parallel for
+    for (int k = 0; k < musicians.size(); k++) {
+        int t = problem.musicians[k];
+        double mx = placements[k].x, my = placements[k].y;
+        for (int i = 0; i < attendees.size(); i++) {
+            double ax = attendees[i].x, ay = attendees[i].y;
+            bool blocked = false;
+            for (int kk = 0; kk < musicians.size(); kk++) {
+                double cx = placements[kk].x, cy = placements[kk].y;
+                if (k != kk && is_intersect(cx, cy, 5.0, mx, my, ax, ay)) {
+                    blocked = true;
+                    break;
+                }
+            }
+
+            for (int p = 0; p < pillars.size(); p++) {
+                if (is_intersect(pillars[p], pillars[p].r, placements[k],
+                    attendees[i])) {
+                    blocked = true;
+                    break;
+                }
+            }
+            if (blocked)
+                continue;
+
+            double d2 = (ax - mx) * (ax - mx) + (ay - my) * (ay - my);
+            double taste = attendees[i].tastes[t];
+            double qk = harmony[k];
+#pragma omp critical(crit_sct)
+            {
+                double impact = ceil(1e6 * taste / d2);
+                scores[k] += (int64_t)ceil((is_volume_available ? solution.volumes[k] : 1.0) * qk * impact);
+            }
+        }
+    }
+
+    return scores;
+}
+
+void set_optimal_volumes(const Problem& problem, Solution& solution) {
+    auto scores = compute_score_each_musician(problem, solution);
+    for (int musician_id = 0; musician_id < problem.musicians.size(); musician_id++) {
+        solution.volumes[musician_id] = scores[musician_id] < 0 ? 0.0 : 10.0;
+    }
+}
+
 struct SegmentMap : public std::map<double, double> {
   bool included(double x) {
     auto it = upper_bound(x);
