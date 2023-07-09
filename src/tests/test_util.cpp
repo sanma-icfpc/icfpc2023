@@ -236,6 +236,23 @@ TEST(TestUtil, RegressionTest_ComputeScoreFunctionsWithoutPillars) {
   EXPECT_EQ(score_cached, 4382334);  // revision:87ac52b
 }
 
+TEST(TestUtil, ComputeScoreFunctionWith10xVolumeScores10x) {
+  Problem problem = Problem::from_file(42);
+  Solution solution = Solution::from_file(
+      "../data/solutions/k3_v01_random_creation/solution-42.json");
+
+  auto score_naive = compute_score(problem, solution);
+  auto score_cached = CachedComputeScore(problem).full_compute(solution);
+  EXPECT_EQ(score_naive, score_cached);
+
+  solution.set_default_volumes();
+  solution.volumes.assign(solution.volumes.size(), 10.0);
+  auto score_naive_loud = compute_score(problem, solution);
+  auto score_cached_loud = CachedComputeScore(problem).full_compute(solution);
+  EXPECT_EQ(score_naive * 10.0, score_naive_loud);
+  EXPECT_EQ(score_cached * 10.0, score_cached_loud);
+}
+
 // Expected values are discussed in the official Discord channel #question.
 TEST(TestUtil, ExtensionsInComputeScoreFunction) {
   Problem problem =
