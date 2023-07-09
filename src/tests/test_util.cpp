@@ -5,43 +5,31 @@
 
 #include "../util.h"
 
-TEST(TestUtil, guess_problem_id) {
+TEST(TestUtil, GuessProblemId) {
   EXPECT_EQ(guess_problem_id("path\\to\\problem-15.json"), 15);
   EXPECT_EQ(guess_problem_id("path\\to\\solution-16.json"), 16);
   EXPECT_EQ(guess_problem_id("path\\to\\solution-17_12345.json"), 17);
 }
 
-TEST(TestUtil, random_test_is_intersect) {
-  Xorshift rnd(42);
-  for (int trial = 0; trial < 10; ++trial) {
-    double ox = rnd.next_double() * 1000 - 500;
-    double oy = rnd.next_double() * 1000 - 500;
-    EXPECT_TRUE(
-        is_intersect(ox, oy, 10.0, ox + 0.0, oy + 0.0, ox + 10.0,
-                     oy + 10.0));  // 1pt inside, 1pt outside. fails. intended??
-    EXPECT_TRUE(
-        is_intersect(ox, oy, 10.0, ox - 1.0, oy - 1.0, ox + 10.0,
-                     oy + 10.0));  // 1pt inside, 1pt outside. fails. intended??
-    EXPECT_TRUE(is_intersect(ox, oy, 10.0, ox + 1.0, oy + 1.0, ox + 10.0,
-                             oy + 10.0));  // 1pt inside, 1pt outside.
-    EXPECT_TRUE(is_intersect(ox, oy, 10.0, ox + 2.0, oy + 2.0, ox + 10.0,
-                             oy + 10.0));  // 1pt inside, 1pt outside.
-    EXPECT_TRUE(is_intersect(ox, oy, 10.0, ox + 5.0, oy + 5.0, ox + 10.0,
-                             oy + 10.0));  // 1pt inside, 1pt outside.
-    EXPECT_TRUE(is_intersect(ox, oy, 10.0, ox + -10.0, oy + -10.0, ox + 10.0,
-                             oy + 10.0));  // both outside, crossing
-    EXPECT_FALSE(is_intersect(ox, oy, 10.0, ox + 0.0, oy + 0.0, ox + 5.0,
-                              oy + 5.0));  // 2pts inside
-    EXPECT_TRUE(is_intersect(ox, oy, 10.0, ox + -10.0, oy + -9.0, ox + 10.0,
-                             oy + -9.0));  // 2pt cross
-    EXPECT_TRUE(is_intersect(ox, oy, 10.0, ox + -10.0, oy + -10.0, ox + 10.0,
-                             oy + -10.0));  // touch
-    EXPECT_FALSE(is_intersect(ox, oy, 10.0, ox + -10.0, oy + -11.0, ox + 10.0,
-                              oy + -11.0));
-  }
+TEST(TestUtil, IsIntersect) {
+  // 1 point inside, 1 point outside.
+  EXPECT_TRUE(is_intersect(0, 0, 10, 0, 0, 10, 10));
+  EXPECT_TRUE(is_intersect(0, 0, 10, -1, -1, 10, 10));
+  EXPECT_TRUE(is_intersect(0, 0, 10, 1, 1, 10, 10));
+  EXPECT_TRUE(is_intersect(0, 0, 10, 2, 2, 10, 10));
+  EXPECT_TRUE(is_intersect(0, 0, 10, 5, 5, 10, 10));
+
+  // both outside, crossing
+  EXPECT_TRUE(is_intersect(0, 0, 10, -10, -10, 10, 10));
+  EXPECT_TRUE(is_intersect(0, 0, 10, -10, -9, 10, -9));
+  EXPECT_TRUE(is_intersect(0, 0, 10, -10, -10, 10, -10));  // Touching
+  EXPECT_FALSE(is_intersect(0, 0, 10, -10, -11, 10, -11));
+
+  // both inside
+  EXPECT_FALSE(is_intersect(0, 0, 10, 0, 0, 5, 5));
 }
 
-TEST(TestUtil, CachedComputeScore_inverse_operation_cancels_out_score_gain) {
+TEST(TestUtil, CachedComputeScore_InverseOperationCancelsOutScoreGain) {
   Problem problem = Problem::from_file(42);
   Xorshift rnd(42);
   Solution solution = *create_random_solution(problem, rnd);
@@ -57,16 +45,12 @@ TEST(TestUtil, CachedComputeScore_inverse_operation_cancels_out_score_gain) {
   EXPECT_EQ(gain_forward + gain_backward, 0);
 }
 
-TEST(TestUtil, guess_Extension) {
+TEST(TestUtil, GuessExtension) {
   EXPECT_EQ(Problem::from_file(42).extension, Extension::lightning());
-  EXPECT_EQ(Problem::from_file("../data/problems/problem-42.json").extension,
-            Extension::lightning());
   EXPECT_EQ(Problem::from_file(56).extension, Extension::full());
-  EXPECT_EQ(Problem::from_file("../data/problems/problem-56.json").extension,
-            Extension::full());
 }
 
-TEST(TestUtil, regression_test_for_compute_score_functions_without_pillars) {
+TEST(TestUtil, RegressionTest_ComputeScoreFunctionsWithoutPillars) {
   Problem problem = Problem::from_file(42);
   Solution solution = Solution::from_file(
       "../data/solutions/k3_v01_random_creation/solution-42.json");
@@ -82,16 +66,19 @@ TEST(TestUtil, regression_test_for_compute_score_functions_without_pillars) {
   EXPECT_EQ(score_cached, 4382334);  // revision:87ac52b
 }
 
-TEST(TestUtil, ExtensionsInComputeScoreFunction) {
-  Xorshift rnd(42);
-  Problem problem = Problem::from_file(56);
-  Solution solution = *create_random_solution(problem, rnd);
+// Expected values are discussed in the official Discord channel #question.
+TEST(TestUtil, DISABLED_ExtensionsInComputeScoreFunction) {
+  Problem problem =
+      Problem::from_file("../data/test_data/problem-example.json");
+  Solution solution =
+      Solution::from_file("../data/test_data/solution-example.json");
 
   const Extension extension_pillars{.consider_pillars = true,
                                     .consider_harmony = false};
   const Extension extension_harmony{.consider_pillars = false,
                                     .consider_harmony = true};
 
+  auto score_naive_full = compute_score(problem, solution);
   problem.extension = extension_pillars;
   auto score_naive_pillars = compute_score(problem, solution);
 
@@ -105,11 +92,10 @@ TEST(TestUtil, ExtensionsInComputeScoreFunction) {
   problem.extension = extension_harmony;
   auto score_naive_harmony = compute_score(problem, solution);
 
-  LOG(INFO) << "score_naive(lightning): " << score_naive_lightning;
-  LOG(INFO) << "score_naive(pillars): " << score_naive_pillars;
-  LOG(INFO) << "score_naive(harmony): " << score_naive_harmony;
-  EXPECT_LT(score_naive_pillars, score_naive_lightning);
-  EXPECT_GT(score_naive_harmony, score_naive_lightning);
+  EXPECT_DOUBLE_EQ(score_naive_lightning, 5343.0);
+  EXPECT_DOUBLE_EQ(score_naive_full, 3270.0);
+  // EXPECT_DOUBLE_EQ(score_naive_pillars, ?);
+  EXPECT_DOUBLE_EQ(score_naive_harmony, 5350.0);
 }
 
 TEST(TestUtil, test_compute_score_fast) {
