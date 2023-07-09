@@ -78,9 +78,9 @@ int main(int argc, char* argv[]) {
       Solution solution = Solution::from_file(solution_file);
       int64_t score = compute_score(problem, solution);
       if (is_valid_solution(problem, solution, true)) {
-        std::cout << format("[  VALID] score = %I64d (%s)", score, int_to_delimited_string(score).c_str()) << std::endl;
+        std::cout << format("[  VALID] score = %lld (%s)", score, int_to_delimited_string(score).c_str()) << std::endl;
       } else {
-        std::cout << format("[INVALID] score = %I64d (%s)", score, int_to_delimited_string(score).c_str()) << std::endl;
+        std::cout << format("[INVALID] score = %lld (%s)", score, int_to_delimited_string(score).c_str()) << std::endl;
       }
     }
   }

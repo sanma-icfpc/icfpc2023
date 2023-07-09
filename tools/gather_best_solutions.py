@@ -73,7 +73,8 @@ def main():
         basename = f'solution-{id}.json'
         target_path = os.path.join(args.target_dir, basename)
         if args.set_constant_volumes < 0:
-            shutil.copy2(path, target_path)
+            if path != target_path:
+                shutil.copy2(path, target_path)
         else:
             with open(path, 'r', encoding='utf-8') as f:
                 solution = json.load(f)
