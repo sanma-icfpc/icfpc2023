@@ -36,7 +36,7 @@ LDFLAGS+=-lpthread
 #CXXFLAGS+=-DNDEBUG
 
 # add your cpp files here:
-SRCS+=
+SRCS+=util.cpp
 OBJS=$(SRCS:%.cpp=$(BUILD_PATH)/%.o)
 DEPS=$(SRCS:%.cpp=$(BUILD_PATH)/%.d)
 
@@ -56,13 +56,13 @@ SOLVER_DEPS=$(SOLVER_SRCS:%.cpp=$(BUILD_PATH)/%.d)
 SOLVER_BUILD_PATH=build/solvers
 
 # extend this if you wish to add another solver binary.
-K3SOLVER_SRCS=personal/k3/solver.cpp
+K3SOLVER_SRCS=$(SRCS) personal/k3/solver.cpp
 K3SOLVER_OBJS=$(K3SOLVER_SRCS:%.cpp=$(BUILD_PATH)/%.o)
 K3SOLVER_DEPS=$(K3SOLVER_SRCS:%.cpp=$(BUILD_PATH)/%.d)
 K3SOLVER_BUILD_PATH=build/personal/k3
 TARGETS+=k3solver
 
-TSSOLVER_SRCS=personal/ts/solver.cpp
+TSSOLVER_SRCS=$(SRCS) personal/ts/solver.cpp
 TSSOLVER_OBJS=$(TSSOLVER_SRCS:%.cpp=$(BUILD_PATH)/%.o)
 TSSOLVER_DEPS=$(TSSOLVER_SRCS:%.cpp=$(BUILD_PATH)/%.d)
 TSSOLVER_BUILD_PATH=build/personal/ts
