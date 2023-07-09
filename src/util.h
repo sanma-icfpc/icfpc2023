@@ -277,7 +277,7 @@ struct CachedComputeScore {
   const int m_num_pillars;
   Solution m_solution;
 
- private:
+// private:
   std::vector<double> m_harmony_cache;
   std::vector<int64_t> m_score_cache;
   std::vector<uint8_t> m_audible_cache;
@@ -454,8 +454,8 @@ struct CachedComputeScore {
         }
         const bool audible = blocker_count(k_src, i) == 0;
         const int64_t influence = (int64_t)ceil(1e6 * attendees[i].tastes[musicians[k_src]] / distance_squared(placements[k_src], attendees[i]));
-        partial_score(k_src, i) = (int64_t)ceil(m_harmony_cache[k_src] * influence);
-        m_score += audible ? influence : 0;
+        partial_score(k_src, i) = influence;
+        m_score += audible ? (int64_t)ceil(m_harmony_cache[k_src] * influence) : 0;
       }
     }
 

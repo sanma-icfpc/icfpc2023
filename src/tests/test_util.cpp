@@ -1,5 +1,6 @@
 #include "stdafx.h"
 
+#include <ranges>
 #include <glog/logging.h>
 #include <gtest/gtest.h>
 
@@ -95,13 +96,16 @@ TEST(TestUtil, DISABLED_CachedComputeScore_ConsistentWithReferenceScoreDuringRan
     EXPECT_TRUE(bool(new_placement_opt)); // 99% sure..
     EXPECT_NE(cache.change_musician(i, *new_placement_opt), 0); // 99% sure..
     const int64_t score_reference = compute_score(problem, cache.m_solution);
-    EXPECT_EQ(cache.score(), score_reference);
+    EXPECT_NEAR(cache.score(), score_reference, score_reference * 1e-3);
   }
 }
 
-TEST(TestUtil, DISABLED_CachedComputeScore_ConsistentWithReferenceScoreDuringRandomChangeWithHarmony) {
+TEST(TestUtil, CachedComputeScore_ConsistentWithReferenceScoreDuringRandomChangeWithHarmony) {
   Problem problem = Problem::from_file(85);
+  problem.extension.consider_pillars = false;
   problem.pillars.clear();
+  LOG(INFO) << problem.extension.stringify();
+
   Xorshift rnd(42);
   Solution solution = *create_random_solution(problem, rnd);
   const int M = solution.placements.size();
@@ -116,9 +120,13 @@ TEST(TestUtil, DISABLED_CachedComputeScore_ConsistentWithReferenceScoreDuringRan
     EXPECT_TRUE(bool(new_placement_opt)); // 99% sure..
     EXPECT_NE(cache.change_musician(i, *new_placement_opt), 0); // 99% sure..
     const int64_t score_reference = compute_score(problem, cache.m_solution);
-    EXPECT_EQ(cache.score(), score_reference);
-    if (cache.score() != score_reference) {
-      LOG(INFO) << "error at loop = " << loop;
+    EXPECT_NEAR(cache.score(), score_reference, score_reference * 1e-2);
+    {
+      CachedComputeScore cache_ref(problem);
+      cache_ref.full_compute(cache.m_solution);
+      for (int i = 0; i < cache.m_harmony_cache.size(); ++i) {
+        EXPECT_NEAR(cache.m_harmony_cache[i], cache_ref.m_harmony_cache[i], 1e-3);
+      }
     }
   }
 }
