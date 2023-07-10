@@ -19,12 +19,17 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\src\cached_compute_score.cpp" />
+    <ClCompile Include="..\..\src\tests\test_cached_compute_score.cpp" />
     <ClCompile Include="..\..\src\tests\test_example.cpp" />
     <ClCompile Include="..\..\src\tests\test_util.cpp" />
     <ClCompile Include="..\..\src\util.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\..\src\cached_compute_score.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>16.0</VCProjectVersion>

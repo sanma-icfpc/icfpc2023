@@ -135,10 +135,12 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="..\..\src\cached_compute_score.cpp" />
     <ClCompile Include="..\..\src\personal\k3\solver.cpp" />
     <ClCompile Include="..\..\src\util.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\..\src\cached_compute_score.h" />
     <ClInclude Include="..\..\src\spec.h" />
     <ClInclude Include="..\..\src\util.h" />
   </ItemGroup>

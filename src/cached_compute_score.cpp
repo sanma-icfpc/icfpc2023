@@ -1,3 +1,4 @@
+#include "stdafx.h"
 #include "cached_compute_score.h"
 
 #include "spec.h"
