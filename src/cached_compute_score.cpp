@@ -42,10 +42,8 @@ int64_t CachedComputeScore::change_musician(int k_changed,
 
   // スコアの更新前に、ブロック状況の更新が必要(ブロックは新旧両方を同時に利用するため)
   // pillarはblocker_countに加味されているので特別扱いする必要は無い
-  int64_t old_influence = 0;
-  int64_t new_influence = 0;
-#pragma omp parallel for reduction(+ : old_influence) \
-    reduction(+ : new_influence)
+  int64_t influence_diff = 0;
+#pragma omp parallel for reduction(+ : influence_diff)
   for (auto k_src = 0; k_src < M; ++k_src) {
     if (k_changed == k_src)
       continue;
@@ -82,16 +80,19 @@ int64_t CachedComputeScore::change_musician(int k_changed,
           (old_blocker_count == 0) != (new_blocker_count == 0)) {
         musicians_affected[k_src] = 1;
       }
-      old_influence += old_blocker_count == 0
+
+      int64_t partial_influence_diff = 0;
+      partial_influence_diff -= old_blocker_count == 0
                            ? (int64_t)std::ceil(m_solution.volumes[k_src] *
                                                 (1.0 + old_harmony) *
                                                 partial_score(k_src, i))
                            : 0;
-      new_influence += new_blocker_count == 0
+      partial_influence_diff += new_blocker_count == 0
                            ? (int64_t)std::ceil(m_solution.volumes[k_src] *
                                                 (1.0 + new_harmony) *
                                                 partial_score(k_src, i))
                            : 0;
+      influence_diff += partial_influence_diff;
     }
   }
 
@@ -116,8 +117,7 @@ int64_t CachedComputeScore::change_musician(int k_changed,
   const double new_harmony = m_harmony_cache[k_changed];
 
   // 移動したmusicianが得る効果の増減
-#pragma omp parallel for reduction(+ : old_influence) \
-    reduction(+ : new_influence)
+#pragma omp parallel for reduction(+ : influence_diff)
   for (auto i = 0; i < A; ++i) {
     const int64_t old_blocker_count = blocker_count(k_changed, i);
     int64_t new_blocker_count = 0;
@@ -138,9 +138,9 @@ int64_t CachedComputeScore::change_musician(int k_changed,
         new_blocker_count++;
       }
     }
-    if (!dry_run)
-      blocker_count(k_changed, i) = new_blocker_count;
-    old_influence += old_blocker_count == 0
+
+    int64_t partial_influence_diff = 0;
+    partial_influence_diff -= old_blocker_count == 0
                          ? (int64_t)std::ceil(m_solution.volumes[k_changed] *
                                               (1.0 + old_harmony) *
                                               partial_score(k_changed, i))
@@ -150,16 +150,18 @@ int64_t CachedComputeScore::change_musician(int k_changed,
           1e6 * attendees[i].tastes[musicians[k_changed]] /
           distance_squared(placements[k_changed], attendees[i]));
 
-    if (!dry_run)
-      partial_score(k_changed, i) = new_partial_score;
-
-    new_influence += new_blocker_count == 0
+    partial_influence_diff += new_blocker_count == 0
                          ? (int64_t)std::ceil(m_solution.volumes[k_changed] *
                                               (1.0 + new_harmony) *
                                               new_partial_score)
                          : 0;
-  }
+    influence_diff += partial_influence_diff;
 
+    if (!dry_run) {
+      blocker_count(k_changed, i) = new_blocker_count;
+      partial_score(k_changed, i) = new_partial_score;
+    }
+  }
 
   m_accum_elapsed_ms_partial += timer.elapsed_ms();
   m_call_count_partial += 1;
@@ -168,10 +170,10 @@ int64_t CachedComputeScore::change_musician(int k_changed,
     m_solution.placements[k_changed] = prev_placement;
     m_harmony_cache = harmony_cache_backup;
   } else {
-    m_score += new_influence - old_influence;
+    m_score += influence_diff;
   }
 
-  return new_influence - old_influence;
+  return influence_diff;
 }
 
 int64_t CachedComputeScore::change_musician_volume(int k_changed,
