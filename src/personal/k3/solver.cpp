@@ -416,33 +416,18 @@ struct CachedSwapComputeScoreWithoutHarmony {
     }
 };
 
-void anneal_after_volume_change(int problem_id) {
+void save_solution(const Solution& sol, const std::string& out_file_format, int problem_id, int64_t score) {
+    std::string out_file = format(out_file_format, problem_id, score);
+    std::ofstream ofs(out_file);
+    ofs << sol.to_json().dump(4);
+};
+
+Solution swap_anneal(int problem_id, const Problem& problem, Solution sol, const std::string out_file_format, double duration) {
     DUMP(problem_id);
     Timer timer;
 
-    std::string in_file = format("../data/problems/problem-%d.json", problem_id);
-    std::string sol_file = format("../data/solutions/bests/solution-%d.json", problem_id);
-    std::string out_file_format = "../data/solutions/k3_v06_anneal_swap_two_musicians/solution-%d_sub=%lld.json";
-    nlohmann::json data;
-    {
-        std::ifstream ifs(in_file);
-        ifs >> data;
-    }
-
-    Problem problem(data);
-
     Xorshift rnd;
 
-    auto save = [&](const Solution& sol, int problem_id, int64_t score) {
-        std::string out_file = format(out_file_format, problem_id, score);
-        std::ofstream ofs(out_file);
-        ofs << sol.to_json().dump(4);
-    };
-
-    auto sol = *create_random_solution(problem, rnd);
-    if (std::filesystem::exists(sol_file)) {
-        sol = Solution::from_file(sol_file);
-    }
     DUMP(compute_score(problem, sol));
     set_optimal_volumes(problem, sol, 1.0);
     double capped_score = compute_score(problem, sol);
@@ -455,13 +440,10 @@ void anneal_after_volume_change(int problem_id) {
 
     int loop = 0;
     double dump_interval = 100.0;
-    double save_interval = 10000.0;
-    double start_time = timer.elapsed_ms(), now_time = start_time, end_time = start_time + 10000;
+    double start_time = timer.elapsed_ms(), now_time = start_time, end_time = start_time + duration;
     double start_temp = std::max(100.0, capped_score * 1e-5);
     DUMP(start_temp);
     double next_dump_time = start_time + dump_interval;
-    double next_save_time = start_time + save_interval;
-    bool save_mode = false;
     while ((now_time = timer.elapsed_ms()) < end_time) {
         loop++;
         int k1, k2;
@@ -470,7 +452,7 @@ void anneal_after_volume_change(int problem_id) {
             k2 = rnd.next_int(problem.musicians.size());
         } while(k1 == k2);
         auto gain = cache.swap_two_musicians(k1, k2, true);
-        double temp = get_temp(1e4, 0, now_time - start_time, end_time - start_time);
+        double temp = get_temp(start_temp, 0, now_time - start_time, end_time - start_time);
         double prob = exp(gain / temp);
         if (rnd.next_double() < prob) {
             cache.swap_two_musicians(k1, k2, false);
@@ -478,10 +460,6 @@ void anneal_after_volume_change(int problem_id) {
         if (next_dump_time < now_time) {
             DUMP(now_time, loop, cache.score());
             next_dump_time += dump_interval;
-        }
-        if (save_mode && next_save_time < now_time) {
-            save(cache.m_solution, problem_id, cache.score());
-            next_save_time += save_interval;
         }
     }
 
@@ -491,9 +469,88 @@ void anneal_after_volume_change(int problem_id) {
     set_optimal_volumes(problem, sol);
     score = compute_score(problem, sol);
     DUMP(score);
-    save(sol, problem_id, score);
+
+    save_solution(sol, out_file_format, problem_id, score);
+
+    return sol;
 }
 
+Solution move_anneal(int problem_id, const Problem& problem, Solution sol, const std::string out_file_format, double duration) {
+    DUMP(problem_id);
+    Timer timer;
+
+    Xorshift rnd;
+
+    DUMP(compute_score(problem, sol));
+    set_optimal_volumes(problem, sol, 1.0);
+    double capped_score = compute_score(problem, sol);
+    DUMP(compute_score(problem, sol));
+    set_constant_volumes(problem, sol, 1.0);
+    DUMP(compute_score(problem, sol));
+
+    CachedComputeScore cache(problem);
+    cache.full_compute(sol);
+
+    int loop = 0;
+    double dump_interval = 1000.0;
+    double save_interval = 10000.0;
+    double start_time = timer.elapsed_ms(), now_time = start_time, end_time = start_time + duration;
+    double start_temp = std::max(100.0, capped_score * 1e-5);
+    DUMP(start_temp);
+    double next_dump_time = start_time + dump_interval;
+    double next_save_time = start_time + save_interval;
+    while ((now_time = timer.elapsed_ms()) < end_time) {
+        loop++;
+        const int i = rnd.next_int(problem.musicians.size());
+        auto old_placement = cache.m_solution.placements[i];
+        auto new_placement_opt = suggest_random_position(problem, cache.m_solution, rnd, i);
+        if (!new_placement_opt) continue;
+        auto gain = cache.change_musician(i, *new_placement_opt);
+        double temp = get_temp(start_temp, 0, now_time - start_time, end_time - start_time);
+        double prob = exp(gain / temp);
+        if (rnd.next_double() > prob) {
+            cache.change_musician(i, old_placement);
+        }
+        if (next_dump_time < now_time) {
+            DUMP(now_time, loop, cache.score());
+            next_dump_time += dump_interval;
+        }
+    }
+
+    sol = cache.m_solution;
+    auto score = compute_score(problem, sol);
+    DUMP(cache.score(), score);
+    set_optimal_volumes(problem, sol);
+    score = compute_score(problem, sol);
+    DUMP(score);
+    save_solution(sol, out_file_format, problem_id, score);
+
+    return sol;
+}
+
+void solve(int problem_id) {
+
+    std::string in_file = format("../data/problems/problem-%d.json", problem_id);
+    auto problem = Problem::from_file(in_file);
+
+    std::string sol_file = format("../data/solutions/bests/solution-%d.json", problem_id);
+    Solution solution;
+    if (!sol_file.empty() && std::filesystem::exists(sol_file)) {
+        solution = Solution::from_file(sol_file);
+    }
+    else {
+        Xorshift rnd;
+        solution = *create_random_solution(problem, rnd);
+    }
+
+    std::string out_file_format = "../data/solutions/k3_v06_anneal_swap_two_musicians/solution-%d_sub=%lld.json";
+    
+    for (int trial = 0; trial < 10; trial++) {
+        solution = swap_anneal(problem_id, problem, solution, out_file_format, 20000);
+        solution = move_anneal(problem_id, problem, solution, out_file_format, 60000);
+    }
+
+}
 
 
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
@@ -502,9 +559,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     cv::utils::logging::setLogLevel(cv::utils::logging::LogLevel::LOG_LEVEL_SILENT);
 #endif
 
-    for (int problem_id = 1; problem_id <= 55; problem_id++) {
-        anneal_after_volume_change(problem_id);
-    }
+    solve(1);
 
     return 0;
 }
