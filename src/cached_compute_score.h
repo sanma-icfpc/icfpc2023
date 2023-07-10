@@ -76,7 +76,7 @@ struct CachedComputeScore {
   }
 
   // k_src's ray to i is audible by k_other
-  uint8_t& partial_audible(int k_src, int k_other, int i) {
+  uint8_t& partial_audible(size_t k_src, int k_other, int i) {
 #if 0
         LOG_ASSERT(0 <= k_src && k_src < m_num_musicians);
         LOG_ASSERT(0 <= k_other && k_other < m_num_musicians);
