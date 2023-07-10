@@ -1,9 +1,11 @@
 name: track-scoreboard
 run-name: Track scoreboard
 
-on:
-  schedule:
-    - cron: '*/5 * * * *'
+# Tracked during the contest.
+
+# on:
+#  schedule:
+#     - cron: '*/5 * * * *'
 
 jobs:
   build:
