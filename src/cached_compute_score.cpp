@@ -17,7 +17,7 @@ CachedComputeScore::CachedComputeScore(const Problem& problem)
                             0) {}
 
 int64_t CachedComputeScore::change_musician(int k_changed,
-                                            const Placement& curr_placement) {
+                                            const Placement& curr_placement, bool dry_run) {
   Timer timer;
 
   const Placement prev_placement = m_solution.placements[k_changed];
@@ -36,6 +36,8 @@ int64_t CachedComputeScore::change_musician(int k_changed,
     musicians_affected.assign(M, 0);
     m_affected_musicians_indices.clear();
   }
+
+  auto harmony_cache_backup = m_harmony_cache;
 
   // スコアの更新前に、ブロック状況の更新が必要(ブロックは新旧両方を同時に利用するため)
   // pillarはblocker_countに加味されているので特別扱いする必要は無い
@@ -63,15 +65,17 @@ int64_t CachedComputeScore::change_musician(int k_changed,
       const bool new_audible =
           !is_intersect(placements[k_changed], k_musician_radius,
                         placements[k_src], attendees[i]);
-      partial_audible(k_src, k_changed, i) =
-          new_audible;  // この二重ループでは全て独立
+      if (!dry_run)
+        partial_audible(k_src, k_changed, i) = new_audible;
 
       const auto old_blocker_count = blocker_count(k_src, i);
+      auto new_blocker_count = old_blocker_count;
       if (old_audible && !new_audible)
-        blocker_count(k_src, i) += 1;
+        new_blocker_count += 1;
       if (!old_audible && new_audible)
-        blocker_count(k_src, i) -= 1;
-      const auto new_blocker_count = blocker_count(k_src, i);
+        new_blocker_count -= 1;
+      if (!dry_run)
+        blocker_count(k_src, i) = new_blocker_count;
 
       if (m_compute_affected &&
           (old_blocker_count == 0) != (new_blocker_count == 0)) {
@@ -119,11 +123,13 @@ int64_t CachedComputeScore::change_musician(int k_changed,
     for (int k_other = 0; k_other < M; ++k_other) {
       if (k_other == k_changed)
         continue;
-      partial_audible(k_changed, k_other, i) =
+      auto new_partial_audible = 
           !is_intersect(placements[k_other], k_musician_radius,
                         placements[k_changed], attendees[i]);
-      if (!partial_audible(k_changed, k_other, i))
+      if (!new_partial_audible)
         new_blocker_count++;
+      if (!dry_run)
+        partial_audible(k_changed, k_other, i) = new_partial_audible;
     }
     for (int p = 0; p < P; ++p) {
       if (is_intersect(pillars[p], pillars[p].r, placements[k_changed],
@@ -131,26 +137,38 @@ int64_t CachedComputeScore::change_musician(int k_changed,
         new_blocker_count++;
       }
     }
-    blocker_count(k_changed, i) = new_blocker_count;
+    if (!dry_run)
+      blocker_count(k_changed, i) = new_blocker_count;
     old_influence += old_blocker_count == 0
                          ? (int64_t)std::ceil(m_solution.volumes[k_changed] *
                                               (1.0 + old_harmony) *
                                               partial_score(k_changed, i))
                          : 0;
-    partial_score(k_changed, i) = (int64_t)std::ceil(
-        1e6 * attendees[i].tastes[musicians[k_changed]] /
-        distance_squared(placements[k_changed], attendees[i]));
+    
+    const int64_t new_partial_score = (int64_t)std::ceil(
+          1e6 * attendees[i].tastes[musicians[k_changed]] /
+          distance_squared(placements[k_changed], attendees[i]));
+
+    if (!dry_run)
+      partial_score(k_changed, i) = new_partial_score;
+
     new_influence += new_blocker_count == 0
                          ? (int64_t)std::ceil(m_solution.volumes[k_changed] *
                                               (1.0 + new_harmony) *
-                                              partial_score(k_changed, i))
+                                              new_partial_score)
                          : 0;
   }
 
-  m_score += new_influence - old_influence;
 
   m_accum_elapsed_ms_partial += timer.elapsed_ms();
   m_call_count_partial += 1;
+
+  if (dry_run) {
+    m_solution.placements[k_changed] = prev_placement;
+    m_harmony_cache = harmony_cache_backup;
+  } else {
+    m_score += new_influence - old_influence;
+  }
 
   return new_influence - old_influence;
 }

@@ -320,13 +320,15 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
                     }
                 }
                 if (conflict) continue;
-                cache.change_musician(changeset.i, changeset.i_after);
                 int64_t score = cache.score();
+                score += cache.change_musician(changeset.i, changeset.i_after, true);
                 if (chmax(best_score, score)) {
+                    cache.change_musician(changeset.i, changeset.i_after, false); // execute.
                     best_solution = cache.m_solution;
                     found = true;
                 } else {
-                    if (changeset.i >= 0) cache.change_musician(changeset.i, changeset.i_before);
+                    // no need to revert.
+                    //if (changeset.i >= 0) cache.change_musician(changeset.i, changeset.i_before);
                 }
                 break;
             }

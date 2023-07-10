@@ -91,7 +91,7 @@ struct CachedComputeScore {
 
   int64_t change_musician_volume(int k_changed, double curr_volume);
 
-  int64_t change_musician(int k_changed, const Placement& curr_placement);
+  int64_t change_musician(int k_changed, const Placement& curr_placement, bool dry_run = false);
 
   int64_t full_compute(const Solution& solution);
 };
