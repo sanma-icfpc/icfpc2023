@@ -140,6 +140,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\personal\ts\solver.cpp" />
+    <ClCompile Include="..\..\src\util.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

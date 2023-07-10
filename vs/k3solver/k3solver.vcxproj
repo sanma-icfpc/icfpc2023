@@ -136,6 +136,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="..\..\src\personal\k3\solver.cpp" />
+    <ClCompile Include="..\..\src\util.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\spec.h" />

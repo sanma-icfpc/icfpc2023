@@ -21,6 +21,7 @@
   <ItemGroup>
     <ClCompile Include="..\..\src\tests\test_example.cpp" />
     <ClCompile Include="..\..\src\tests\test_util.cpp" />
+    <ClCompile Include="..\..\src\util.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
