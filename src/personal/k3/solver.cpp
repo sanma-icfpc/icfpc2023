@@ -96,11 +96,12 @@ inline double get_temp(double stemp, double etemp, double t, double T) {
 #endif
 
 void anneal_after_volume_change(int problem_id) {
+    DUMP(problem_id);
     Timer timer;
 
     std::string in_file = format("../data/problems/problem-%d.json", problem_id);
     std::string sol_file = format("../data/solutions/bests/solution-%d.json", problem_id);
-    std::string out_file_format = "../data/solutions/k3_v05_anneal_after_volume_change/solution-%d.json";
+    std::string out_file_format = "../data/solutions/k3_v05_anneal_after_volume_change/solution-%d_sub=%lld.json";
     nlohmann::json data;
     {
         std::ifstream ifs(in_file);
@@ -120,6 +121,9 @@ void anneal_after_volume_change(int problem_id) {
     auto sol = Solution::from_file(sol_file);
     DUMP(compute_score(problem, sol));
     set_optimal_volumes(problem, sol, 1.0);
+    double capped_score = compute_score(problem, sol);
+    DUMP(compute_score(problem, sol));
+    set_constant_volumes(problem, sol, 1.0);
     DUMP(compute_score(problem, sol));
 
     CachedComputeScore cache(problem);
@@ -128,7 +132,9 @@ void anneal_after_volume_change(int problem_id) {
     int loop = 0;
     double dump_interval = 1000.0;
     double save_interval = 10000.0;
-    double start_time = timer.elapsed_ms(), now_time = start_time, end_time = 60000;
+    double start_time = timer.elapsed_ms(), now_time = start_time, end_time = start_time + 60000;
+    double start_temp = std::max(100.0, capped_score * 1e-5);
+    DUMP(start_temp);
     double next_dump_time = start_time + dump_interval;
     double next_save_time = start_time + save_interval;
     bool save_mode = false;
@@ -171,7 +177,10 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     cv::utils::logging::setLogLevel(cv::utils::logging::LogLevel::LOG_LEVEL_SILENT);
 #endif
 
-    anneal_after_volume_change(15);
+    for (int problem_id = 3; problem_id <= 90; problem_id++) {
+        if (problem_id == 18) continue;
+        anneal_after_volume_change(problem_id);
+    }
 
     return 0;
 }
