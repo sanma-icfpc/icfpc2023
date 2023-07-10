@@ -82,6 +82,9 @@ int main(int argc, char* argv[]) {
       } else {
         std::cout << format("[INVALID] score = %lld (%s)", score, int_to_delimited_string(score).c_str()) << std::endl;
       }
+      set_optimal_volumes(problem, solution);
+      score = compute_score(problem, solution);
+      std::cout << format("[ OPTVOL] score = %lld (%s)", score, int_to_delimited_string(score).c_str()) << std::endl;
     }
   }
 
