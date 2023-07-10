@@ -30,6 +30,7 @@ def main():
     parser.add_argument('target_dir', nargs='?', type=str, default=os.path.join(SOLUTIONS_DIR, 'bests'))
     parser.add_argument('--solutions-dir', type=str, default=SOLUTIONS_DIR)
     parser.add_argument('--set-constant-volumes', type=float, default=-1.0)
+    parser.add_argument('--just-evaluate', action='store_true', default=False)
     args = parser.parse_args()
 
     assert os.path.isdir(args.solutions_dir)
@@ -55,6 +56,7 @@ def main():
     id_to_best_score = {}
     id_to_best_path = {}
 
+    best_fo = open('best.csv', 'w')
     # compute_score 自体が並列化されているのでそのまま
     for id, paths in id_to_paths.items():
         if id not in id_to_best_score:
@@ -64,8 +66,12 @@ def main():
             if id_to_best_score[id] < score:
                 id_to_best_score[id] = score
                 id_to_best_path[id] = path
-        print(id, id_to_best_score[id], id_to_best_path[id])
+        print(f'{id:3d} | {id_to_best_score[id]:>10d} | {id_to_best_path[id]}')
+        print(f'{id},{id_to_best_score[id]},{id_to_best_path[id]}', file=best_fo)
     
+    if args.just_evaluate:
+        return
+
     if not os.path.exists(args.target_dir):
         os.makedirs(args.target_dir)
 
