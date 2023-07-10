@@ -95,13 +95,334 @@ inline double get_temp(double stemp, double etemp, double t, double T) {
 };
 #endif
 
+
+struct CachedSwapComputeScore {
+  public:
+    const Problem &m_problem;
+    const int m_num_attendees;
+    const int m_num_musicians;
+    const int m_num_pillars;
+    Solution m_solution;
+
+    std::vector<double> m_harmony_cache; // 1 + m_harmony_cache[k] is the harmony.
+    std::vector<int64_t> m_score_cache;
+    std::vector<uint8_t> m_audible_cache;
+    int64_t m_score;
+
+    double m_accum_elapsed_ms_partial = 0.0;
+    int m_call_count_partial = 0;
+    double m_accum_elapsed_ms_full = 0.0;
+    int m_call_count_full = 0;
+
+    double get_mean_elapsed_ms_partial() const {
+        return m_accum_elapsed_ms_partial / (m_call_count_partial + 1e-9);
+    }
+    double get_mean_elapsed_ms_full() const {
+        return m_accum_elapsed_ms_full / (m_call_count_full + 1e-9);
+    }
+    void report() const {
+        LOG(INFO) << format("PID=%d: full calculation %.4f ms/eval (%d evals), "
+                            "partial update %.4f "
+                            "ms/eval (%d evals)",
+                            m_problem.problem_id, get_mean_elapsed_ms_full(),
+                            m_call_count_full, get_mean_elapsed_ms_partial(),
+                            m_call_count_partial);
+    }
+
+  public:
+    CachedSwapComputeScore(const Problem &problem)
+    : m_problem(problem),
+      m_num_attendees(problem.attendees.size()),
+      m_num_musicians(problem.musicians.size()),
+      m_num_pillars(problem.extension.consider_pillars ? problem.pillars.size() : 0),
+      m_harmony_cache(m_num_musicians, 0.0),
+      m_score_cache(problem.attendees.size() * problem.musicians.size(), 0),
+      m_audible_cache(problem.attendees.size() * problem.musicians.size(), 1) {}
+
+    int64_t &partial_score(int k, int i) {
+#if 0
+        LOG_ASSERT(0 <= k && k < m_num_musicians);
+        LOG_ASSERT(0 <= i && i < m_num_attendees);
+#endif
+        return m_score_cache[k * m_num_attendees + i];
+    }
+
+    // k_src's ray to i is audible by k_other
+    uint8_t &is_audible(int k, int i) {
+        return m_audible_cache[k * m_num_attendees + i];
+    }
+    int64_t score() const { return m_score; }
+
+    int64_t swap_two_musicians(int k1, int k2, bool dry_run) {
+        Timer timer;
+
+        // swap two musicians position
+        std::swap(m_solution.placements[k1], m_solution.placements[k2]);
+
+        const auto &musicians = m_problem.musicians;
+        const auto &attendees = m_problem.attendees;
+        const auto &placements = m_solution.placements;
+        const auto &pillars = m_problem.pillars;
+        const int M = musicians.size();
+        const int A = attendees.size();
+        const int P = pillars.size();
+        LOG_ASSERT(M == placements.size());
+
+        auto harmony_cache_backup = m_harmony_cache;
+
+        int64_t influence_diff = 0;
+        
+        // k1 について
+        // position と audible list は k2 のものと swap
+        // partial score は 再計算 (距離をキャッシュ？)
+        // 
+
+        m_accum_elapsed_ms_partial += timer.elapsed_ms();
+        m_call_count_partial += 1;
+
+        if(dry_run) {
+            std::swap(m_solution.placements[k1], m_solution.placements[k2]);
+            m_harmony_cache = harmony_cache_backup;
+        } else {
+            m_score += influence_diff;
+        }
+
+        return influence_diff;
+    }
+
+    int64_t full_compute(const Solution &solution) {
+        Timer timer;
+
+        m_solution = solution;
+        const auto &musicians = m_problem.musicians;
+        const auto &attendees = m_problem.attendees;
+        const auto &placements = solution.placements;
+        const auto &pillars = m_problem.pillars;
+        const int M = musicians.size();
+        const int A = attendees.size();
+        const int P = pillars.size();
+
+        m_score = 0;
+        m_score_cache.assign(m_score_cache.size(), 0);
+        m_audible_cache.assign(m_audible_cache.size(), 1);
+        m_harmony_cache.assign(m_harmony_cache.size(), 0.0);
+
+        if(m_problem.extension.consider_harmony) {
+    #pragma omp parallel for
+            for(int k = 0; k < M; k++) {
+                double harmony = 0.0;
+                for(int k_other = 0; k_other < M; ++k_other) {
+                    if(k != k_other && musicians[k] == musicians[k_other]) {
+                        harmony +=
+                            inverse_distance(placements[k], placements[k_other]);
+                    }
+                }
+                m_harmony_cache[k] = harmony;
+            }
+        }
+
+        int64_t score_diff = 0;
+    #pragma omp parallel for reduction(+ : score_diff)
+        for(auto k_src = 0; k_src < M; ++k_src) {
+            for(int i = 0; i < A; ++i) {
+                bool audible = true;
+                for(int k_other = 0; k_other < M; ++k_other) {
+                    if(
+                        k_src != k_other &&
+                        is_intersect(placements[k_other], k_musician_radius, placements[k_src], attendees[i])
+                        ) {
+                        audible = false;        
+                        break;                
+                    }
+                }
+                if (audible) {
+                    for(int p = 0; p < P; ++p) {
+                        if(is_intersect(pillars[p], pillars[p].r, placements[k_src], attendees[i])) {
+                            audible = false;
+                            break;
+                        }
+                    }
+                }
+                const int64_t influence = (int64_t)ceil(
+                    1e6 * attendees[i].tastes[musicians[k_src]] /
+                    distance_squared(placements[k_src], attendees[i]));
+                partial_score(k_src, i) = influence;
+                is_audible(k_src, i) = audible;
+                score_diff +=
+                    audible
+                        ? (int64_t)ceil(m_solution.volumes[k_src] *
+                                        (1.0 + m_harmony_cache[k_src]) * influence)
+                        : 0;
+            }
+        }
+        m_score += score_diff;
+
+        m_accum_elapsed_ms_full += timer.elapsed_ms();
+        m_call_count_full += 1;
+        return m_score;
+    }
+};
+
+struct CachedSwapComputeScoreWithoutHarmony {
+  public:
+    const Problem &m_problem;
+    const int m_num_attendees;
+    const int m_num_musicians;
+    const int m_num_pillars;
+    Solution m_solution;
+
+    std::vector<int64_t> m_score_cache;
+    std::vector<uint8_t> m_audible_cache;
+    int64_t m_score;
+
+  public:
+    CachedSwapComputeScoreWithoutHarmony(const Problem &problem)
+    : m_problem(problem),
+      m_num_attendees(problem.attendees.size()),
+      m_num_musicians(problem.musicians.size()),
+      m_num_pillars(problem.extension.consider_pillars ? problem.pillars.size() : 0),
+      m_score_cache(problem.attendees.size() * problem.musicians.size(), 0),
+      m_audible_cache(problem.attendees.size() * problem.musicians.size(), 1) {}
+
+    int64_t &partial_score(int k, int i) {
+#if 0
+        LOG_ASSERT(0 <= k && k < m_num_musicians);
+        LOG_ASSERT(0 <= i && i < m_num_attendees);
+#endif
+        return m_score_cache[k * m_num_attendees + i];
+    }
+
+    // k_src's ray to i is audible by k_other
+    uint8_t &is_audible(int k, int i) {
+        return m_audible_cache[k * m_num_attendees + i];
+    }
+    int64_t score() const { return m_score; }
+
+    int64_t swap_two_musicians(int k1, int k2, bool dry_run) {
+        Timer timer;
+
+        const auto &musicians = m_problem.musicians;
+        const auto &attendees = m_problem.attendees;
+        const auto &placements = m_solution.placements;
+        const auto &pillars = m_problem.pillars;
+        const int M = musicians.size();
+        const int A = attendees.size();
+        const int P = pillars.size();
+        LOG_ASSERT(M == placements.size());
+
+        // swap position
+        std::swap(m_solution.placements[k1], m_solution.placements[k2]);
+
+        int64_t influence_diff = 0;
+        
+        // k1 について
+        // position と audible list は k2 のものと swap
+        // partial score は 再計算 (距離をキャッシュ？)
+
+        for (int i = 0; i < A; i++) {
+
+            auto audible_k1 = is_audible(k1, i);
+            int64_t influence_k1 = (int64_t)ceil(
+                1e6 * attendees[i].tastes[musicians[k1]] /
+                 distance_squared(placements[k1], attendees[i]));
+
+            auto audible_k2 = is_audible(k2, i);
+            int64_t influence_k2 = (int64_t)ceil(
+                1e6 * attendees[i].tastes[musicians[k2]] /
+                 distance_squared(placements[k2], attendees[i]));
+
+            influence_diff += (audible_k2 ? influence_k1 : 0) - (audible_k1 ? partial_score(k1, i) : 0)
+                            + (audible_k1 ? influence_k2 : 0) - (audible_k2 ? partial_score(k2, i) : 0);
+
+            if (!dry_run) {
+                std::swap(is_audible(k1, i), is_audible(k2, i));
+                partial_score(k1, i) = influence_k1;
+                partial_score(k2, i) = influence_k2;
+            }
+
+        }
+
+        if(dry_run) {
+            std::swap(m_solution.placements[k1], m_solution.placements[k2]);
+        } else {
+            m_score += influence_diff;
+        }
+
+        return influence_diff;
+    }
+
+    int64_t full_compute(const Solution &solution) {
+        Timer timer;
+
+        m_solution = solution;
+        const auto &musicians = m_problem.musicians;
+        const auto &attendees = m_problem.attendees;
+        const auto &placements = solution.placements;
+        const auto &pillars = m_problem.pillars;
+        const int M = musicians.size();
+        const int A = attendees.size();
+        const int P = pillars.size();
+
+        m_score = 0;
+        m_score_cache.assign(m_score_cache.size(), 0);
+        m_audible_cache.assign(m_audible_cache.size(), 1);
+
+        if(m_problem.extension.consider_harmony) {
+    #pragma omp parallel for
+            for(int k = 0; k < M; k++) {
+                double harmony = 0.0;
+                for(int k_other = 0; k_other < M; ++k_other) {
+                    if(k != k_other && musicians[k] == musicians[k_other]) {
+                        harmony +=
+                            inverse_distance(placements[k], placements[k_other]);
+                    }
+                }
+            }
+        }
+
+        int64_t score_diff = 0;
+    #pragma omp parallel for reduction(+ : score_diff)
+        for(auto k_src = 0; k_src < M; ++k_src) {
+            for(int i = 0; i < A; ++i) {
+                bool audible = true;
+                for(int k_other = 0; k_other < M; ++k_other) {
+                    if(
+                        k_src != k_other &&
+                        is_intersect(placements[k_other], k_musician_radius, placements[k_src], attendees[i])
+                        ) {
+                        audible = false;        
+                        break;                
+                    }
+                }
+                if (audible) {
+                    for(int p = 0; p < P; ++p) {
+                        if(is_intersect(pillars[p], pillars[p].r, placements[k_src], attendees[i])) {
+                            audible = false;
+                            break;
+                        }
+                    }
+                }
+                const int64_t influence = (int64_t)ceil(
+                    1e6 * attendees[i].tastes[musicians[k_src]] /
+                    distance_squared(placements[k_src], attendees[i]));
+                partial_score(k_src, i) = influence;
+                is_audible(k_src, i) = audible;
+                score_diff += audible ? (int64_t)ceil(m_solution.volumes[k_src] * influence) : 0;
+            }
+        }
+        m_score += score_diff;
+
+        return m_score;
+    }
+};
+
 void anneal_after_volume_change(int problem_id) {
     DUMP(problem_id);
     Timer timer;
 
     std::string in_file = format("../data/problems/problem-%d.json", problem_id);
     std::string sol_file = format("../data/solutions/bests/solution-%d.json", problem_id);
-    std::string out_file_format = "../data/solutions/k3_v05_anneal_after_volume_change/solution-%d_sub=%lld.json";
+    std::string out_file_format = "../data/solutions/k3_v06_anneal_swap_two_musicians/solution-%d_sub=%lld.json";
     nlohmann::json data;
     {
         std::ifstream ifs(in_file);
@@ -118,7 +439,10 @@ void anneal_after_volume_change(int problem_id) {
         ofs << sol.to_json().dump(4);
     };
 
-    auto sol = Solution::from_file(sol_file);
+    auto sol = *create_random_solution(problem, rnd);
+    if (std::filesystem::exists(sol_file)) {
+        sol = Solution::from_file(sol_file);
+    }
     DUMP(compute_score(problem, sol));
     set_optimal_volumes(problem, sol, 1.0);
     double capped_score = compute_score(problem, sol);
@@ -126,13 +450,13 @@ void anneal_after_volume_change(int problem_id) {
     set_constant_volumes(problem, sol, 1.0);
     DUMP(compute_score(problem, sol));
 
-    CachedComputeScore cache(problem);
+    CachedSwapComputeScoreWithoutHarmony cache(problem);
     cache.full_compute(sol);
 
     int loop = 0;
-    double dump_interval = 1000.0;
+    double dump_interval = 100.0;
     double save_interval = 10000.0;
-    double start_time = timer.elapsed_ms(), now_time = start_time, end_time = start_time + 60000;
+    double start_time = timer.elapsed_ms(), now_time = start_time, end_time = start_time + 10000;
     double start_temp = std::max(100.0, capped_score * 1e-5);
     DUMP(start_temp);
     double next_dump_time = start_time + dump_interval;
@@ -140,15 +464,16 @@ void anneal_after_volume_change(int problem_id) {
     bool save_mode = false;
     while ((now_time = timer.elapsed_ms()) < end_time) {
         loop++;
-        const int i = rnd.next_int(problem.musicians.size());
-        auto old_placement = cache.m_solution.placements[i];
-        auto new_placement_opt = suggest_random_position(problem, cache.m_solution, rnd, i);
-        if (!new_placement_opt) continue;
-        auto gain = cache.change_musician(i, *new_placement_opt);
+        int k1, k2;
+        do {
+            k1 = rnd.next_int(problem.musicians.size());
+            k2 = rnd.next_int(problem.musicians.size());
+        } while(k1 == k2);
+        auto gain = cache.swap_two_musicians(k1, k2, true);
         double temp = get_temp(1e4, 0, now_time - start_time, end_time - start_time);
         double prob = exp(gain / temp);
-        if (rnd.next_double() > prob) {
-            cache.change_musician(i, old_placement);
+        if (rnd.next_double() < prob) {
+            cache.swap_two_musicians(k1, k2, false);
         }
         if (next_dump_time < now_time) {
             DUMP(now_time, loop, cache.score());
@@ -177,8 +502,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     cv::utils::logging::setLogLevel(cv::utils::logging::LogLevel::LOG_LEVEL_SILENT);
 #endif
 
-    for (int problem_id = 3; problem_id <= 90; problem_id++) {
-        if (problem_id == 18) continue;
+    for (int problem_id = 1; problem_id <= 55; problem_id++) {
         anneal_after_volume_change(problem_id);
     }
 
