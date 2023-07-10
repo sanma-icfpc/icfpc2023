@@ -543,7 +543,7 @@ void solve(int problem_id) {
         solution = *create_random_solution(problem, rnd);
     }
 
-    std::string out_file_format = "../data/solutions/k3_v06_anneal_swap_two_musicians/solution-%d_sub=%lld.json";
+    std::string out_file_format = "../data/solutions/k3_v07_alternate_optimization/solution-%d_sub=%lld.json";
     
     for (int trial = 0; trial < 10; trial++) {
         solution = swap_anneal(problem_id, problem, solution, out_file_format, 20000);
@@ -559,7 +559,11 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     cv::utils::logging::setLogLevel(cv::utils::logging::LogLevel::LOG_LEVEL_SILENT);
 #endif
 
-    solve(1);
+    int problem_id = 1;
+    if (argc > 1) {
+        problem_id = std::stoi(argv[1]);
+    }
+    solve(problem_id);
 
     return 0;
 }
