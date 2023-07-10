@@ -139,6 +139,33 @@ struct Changeset {
     }
 };
 
+Placement compute_greedy_position_ignoring_obstacles(const Problem& problem, const Solution& solution, int k) {
+    const double h = 1.0;
+    const double alpha = 0.5;
+    Placement p = solution.placements[k];
+    Placement p_prev = p;
+    for (int loop = 0; loop < 100; ++loop) {
+        auto eval = [&](Placement p) {
+            double score = 0.0; // up to proportional factor. without ceil.
+            for (int j = 0; j < problem.A(); ++j) {
+                const double d2 = distance_squared(p, problem.attendees[j]);
+                score += problem.attendees[j].tastes[problem.musicians[k]] / d2;
+            }
+            return score;
+        };
+        const double dx = eval({p.x + h, p.y}) - eval({p.x - h, p.y});
+        const double dy = eval({p.x, p.y + h}) - eval({p.x, p.y - h});
+        const double d = std::hypot(dx, dy);
+        p.x += dx / d * alpha;
+        p.y += dy / d * alpha;
+        p.x = std::clamp(p.x, problem.stage_x + k_musician_spacing_radius, problem.stage_x + problem.stage_w - 2 * k_musician_spacing_radius);
+        p.y = std::clamp(p.y, problem.stage_y + k_musician_spacing_radius, problem.stage_y + problem.stage_h - 2 * k_musician_spacing_radius);
+        //LOG(INFO) << format("(%f, %f) -> %f", p.x, p.y, eval(p));
+        if (p == p_prev) break;
+    }
+    return p;
+}
+
 int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
 
   google::InitGoogleLogging(argv[0]);
@@ -184,6 +211,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     DUMP(input_score);
 
     Solution best_solution = input_solution;
+    const int M = problem.musicians.size();
 
     const int num_force_reset_iter = 10000;
     CachedComputeScore cache(problem);
@@ -199,22 +227,34 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
             loop++;
             if (num_force_reset_iter > 0 &&  loop % num_force_reset_iter == 0) {
                 int64_t adjust_score = -best_score;
-                best_score = cache.full_compute(best_solution);
+                best_score = cache.full_compute(cache.m_solution);
                 adjust_score += best_score;
                 LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "accept":%d, "reject":%d, "adjust":%d})", loop, best_score, accept, reject, adjust_score);
             }
             Changeset changeset;
-            if (rnd.next_int() % 100 <= 1) {
-                changeset = Changeset::sample_random_mutation(problem, rnd, best_solution);
+            int action = rnd.next_int(100);
+            if (action <= 1) {
+                changeset = Changeset::sample_random_mutation(problem, rnd, cache.m_solution);
                 cache.change_musician(changeset.i, changeset.i_after);
                 cache.change_musician(changeset.j, changeset.j_after);
+            } else if (action <= 5) {
+                int k = changeset.i = rnd.next_int(problem.M());
+                changeset.i_before = cache.m_solution.placements[k];
+                changeset.i_after = compute_greedy_position_ignoring_obstacles(problem, cache.m_solution, k);
+                cache.m_solution.placements[k] = changeset.i_after;
+                if (!is_valid_solution(problem, cache.m_solution)) {
+                    cache.m_solution.placements[k] = changeset.i_before;
+                    continue;
+                }
+                cache.m_solution.placements[k] = changeset.i_before;
+                cache.change_musician(changeset.i, changeset.i_after);
             } else {
-                changeset = Changeset::sample_random_motion(problem, rnd, best_solution);
+                changeset = Changeset::sample_random_motion(problem, rnd, cache.m_solution);
                 cache.change_musician(changeset.i, changeset.i_after);
             }
             int64_t score = cache.score();
             if (chmax(best_score, score)) {
-                changeset.apply(best_solution);
+                best_solution = cache.m_solution;
                 ++accept;
             } else {
                 if (changeset.i >= 0) cache.change_musician(changeset.i, changeset.i_before);
@@ -222,6 +262,41 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
                 ++reject;
             }
             LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "accept":%d, "reject":%d})", loop, best_score, accept, reject);
+        }
+        DUMP(loop);
+        DUMP(best_score);
+    }
+    if (method == "HCN") {
+        while (timer.elapsed_ms() < t_max) {
+            loop++;
+            if (num_force_reset_iter > 0 &&  loop % num_force_reset_iter == 0) {
+                int64_t adjust_score = -best_score;
+                best_score = cache.full_compute(best_solution);
+                adjust_score += best_score;
+                LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "accept":%d, "reject":%d, "adjust":%d})", loop, best_score, accept, reject, adjust_score);
+            }
+            int best_idx = -1;
+            Placement best_placement;
+            const auto base_score = best_score;
+            for (int i = 0; i < 100; ++i) {
+                int idx = rnd.next_int(M);
+                if (auto p = suggest_random_position(problem, cache.m_solution, rnd, idx)) {
+                    auto gain = cache.change_musician(idx, *p, true);
+                    if (chmax(best_score, base_score + gain)) {
+                        best_placement = *p;
+                        best_idx = idx;
+                    }
+                }
+                LOG(INFO) << format(R"(RECORD {"loop": %d, "best":%lld, "current":%lld, "accept":%d, "reject":%d})", loop, best_score, cache.score(), accept, reject);
+            }
+            if (best_idx >= 0) {
+                ++accept;
+                cache.change_musician(best_idx, best_placement);
+                best_score = cache.score();
+                best_solution = cache.m_solution;
+            } else {
+                ++reject;
+            }
         }
         DUMP(loop);
         DUMP(best_score);
@@ -522,7 +597,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
                 //auto changeset = Changeset::sample_random_mutation(problem, rnd, cache.m_solution);
                 //cache.change_musician(changeset.i, changeset.i_after);
                 //cache.change_musician(changeset.j, changeset.j_after);
-                for (int i = 0; i < 3; ++i) { // as a kick, repeate for a few times.
+                for (int i = 0; i < 10; ++i) { // as a kick, repeate for a few times.
                     auto changeset = Changeset::sample_random_motion(problem, rnd, cache.m_solution);
                     cache.change_musician(changeset.i, changeset.i_after);
                 }
@@ -540,6 +615,10 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     std::cout << format("init_score  = %I64d (%s)", input_score, int_to_delimited_string(input_score).c_str()) << std::endl;
     std::cout << format("best_score  = %I64d (%s)", best_score, int_to_delimited_string(best_score).c_str()) << std::endl;
     std::cout << format("final_score = %I64d (%s)", final_score, int_to_delimited_string(final_score).c_str()) << std::endl;
+
+    set_optimal_volumes(problem, best_solution);
+    int64_t opvol_score = compute_score(problem, best_solution);
+    std::cout << format("opvol_score = %I64d (%s)", opvol_score, int_to_delimited_string(opvol_score).c_str()) << std::endl;
 
     cache.report();
 

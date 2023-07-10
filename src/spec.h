@@ -82,6 +82,10 @@ struct Problem {
   Extension extension;
   int problem_id = -1;
 
+  size_t A() const { return attendees.size(); };
+  size_t M() const { return musicians.size(); };
+  size_t P() const { return pillars.size(); };
+
   Problem(const nlohmann::json& data) {
     room_width = data["room_width"];
     room_height = data["room_height"];
