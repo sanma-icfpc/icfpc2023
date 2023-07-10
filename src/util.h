@@ -262,6 +262,10 @@ void set_optimal_volumes(const Problem& problem,
                          Solution& solution,
                          double amplitude = 10.0);
 
+void set_constant_volumes(const Problem& problem,
+                         Solution& solution,
+                         double amplitude = 10.0);
+
 int64_t compute_score_fast(const Problem& problem, const Solution& solution);
 
 nlohmann::json create_problem_stats(Problem& problem);

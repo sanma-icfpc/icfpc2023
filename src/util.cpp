@@ -278,6 +278,14 @@ void set_optimal_volumes(const Problem& problem,
   }
 }
 
+void set_constant_volumes(const Problem &problem,
+                          Solution &solution,
+                          double amplitude) {
+  for (int musician_id = 0; musician_id < problem.musicians.size(); musician_id++) {
+    solution.volumes[musician_id] = amplitude;
+  }
+}
+
 struct SegmentMap : public std::map<double, double> {
   bool included(double x) {
     auto it = upper_bound(x);
