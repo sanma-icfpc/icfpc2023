@@ -37,6 +37,41 @@ TEST(CachedComputeScoreTest, InverseOperationCancelsOutScoreGain) {
   EXPECT_EQ(gain_forward + gain_backward, 0);
 }
 
+TEST(CachedComputeScoreTest, DryRunDoesNotChangeInternalState) {
+  Problem problem = Problem::from_file(85);
+  Xorshift rnd(42);
+  Solution solution = *create_random_solution(problem, rnd);
+
+  CachedComputeScore cache(problem);
+  cache.full_compute(solution);
+
+  int64_t initial_score = cache.score();
+  EXPECT_NE(cache.change_musician(1, solution.placements[2], true), 0); // 99% sure
+  EXPECT_NE(cache.change_musician(2, solution.placements[3], true), 0); // 99% sure
+  EXPECT_EQ(cache.score(), initial_score);
+  EXPECT_EQ(cache.m_solution.placements, solution.placements);
+}
+
+TEST(CachedComputeScoreTest, RunAfterDryRunEqualsSimpleRun) {
+  Problem problem = Problem::from_file(85);
+  Xorshift rnd(42);
+  Solution solution = *create_random_solution(problem, rnd);
+
+  CachedComputeScore cache(problem);
+
+  cache.full_compute(solution);
+  EXPECT_NE(cache.change_musician(1, solution.placements[2], true), 0); // trial->revert
+  EXPECT_NE(cache.change_musician(2, solution.placements[3], true), 0); // trial->revert
+  EXPECT_NE(cache.change_musician(3, solution.placements[4], false), 0); // trial->accept
+  int64_t score_run_after_dry_run = cache.score();
+
+  cache.full_compute(solution);
+  EXPECT_NE(cache.change_musician(3, solution.placements[4], false), 0); // trial->accept
+  int64_t score_simple_run = cache.score();
+
+  EXPECT_EQ(score_run_after_dry_run, score_simple_run);
+}
+
 TEST(CachedComputeScoreTest, ConsistentWithReferenceScoreDuringRandomChange) {
   Problem problem = Problem::from_file(42);
   Xorshift rnd(42);
