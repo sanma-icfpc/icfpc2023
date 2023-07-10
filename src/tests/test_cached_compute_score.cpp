@@ -37,6 +37,20 @@ TEST(CachedComputeScoreTest, InverseOperationCancelsOutScoreGain) {
   EXPECT_EQ(gain_forward + gain_backward, 0);
 }
 
+TEST(CachedComputeScoreTest, DryRunComputesExactScoreDiff) {
+  Problem problem = Problem::from_file(85);
+  Xorshift rnd(42);
+  Solution solution = *create_random_solution(problem, rnd);
+
+  CachedComputeScore cache(problem);
+  cache.full_compute(solution);
+
+  int64_t initial_score = cache.score();
+  int64_t dry_run_diff = cache.change_musician(1, solution.placements[2], true);
+  int64_t simple_run_diff = cache.change_musician(1, solution.placements[2], false);
+  EXPECT_EQ(dry_run_diff, simple_run_diff);
+}
+
 TEST(CachedComputeScoreTest, DryRunDoesNotChangeInternalState) {
   Problem problem = Problem::from_file(85);
   Xorshift rnd(42);
