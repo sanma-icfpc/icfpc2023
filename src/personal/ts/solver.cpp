@@ -541,7 +541,7 @@ int main([[maybe_unused]] int argc, [[maybe_unused]] char** argv) {
     cache.report();
 
     if (best_score > 0) {
-        std::ofstream ofs(format("../data/solutions/ts/solution-%d.json", problem_id));
+        std::ofstream ofs(format("../data/solutions/ts_v01_sa/solution-%d.json", problem_id));
         ofs << best_solution.to_json().dump(4);
     }
 
