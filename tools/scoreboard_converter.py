@@ -5,7 +5,8 @@ import os
 import sys
 import time
 
-
+SCOREBOARD_DIR = 'data/scoreboard/'
+DOCS_DIR = 'docs/'
 START_UNIXTIME = time.mktime(time.strptime('Fri Jul 7 12:00:00 2023'))
 
 
@@ -16,7 +17,7 @@ def time2min(timestamp):
 
 
 def main():
-    scoreboard_dir = 'data/scoreboard/'
+    scoreboard_dir = SCOREBOARD_DIR
     if len(sys.argv) >= 2:
         scoreboard_dir = sys.argv[1]
     scoreboard_dir = os.path.abspath(scoreboard_dir)
@@ -47,7 +48,8 @@ def main():
             name = team['username']
             score = team['score']
             scoreboard2[name].append({'x': minutes, 'y': score})
-    scoreboard_filepath = os.path.join(scoreboard_dir, 'scoreboard.json')
+
+    scoreboard_filepath = os.path.join(DOCS_DIR, 'scoreboard.json')
     with open(scoreboard_filepath, 'w') as f:
         json.dump(scoreboard2, f)
 
