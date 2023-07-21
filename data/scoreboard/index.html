@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+
+<head>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
+  <script type="module">
+    import scoreboard from "./scoreboard.json" assert { type: "json" };
+    const canvas = document.getElementById('scoreboard');
+    const colors = [
+      'rgb(255, 0, 0)',
+      'rgb(0, 255, 0)',
+      'rgb(255, 255, 0)',
+      'rgb(0, 0, 255)',
+      'rgb(255, 0, 255)',
+      'rgb(0, 255, 255)',
+      'rgb(128, 128, 128)',
+      'rgb(128, 0, 0)',
+      'rgb(0, 128, 0)',
+      'rgb(128, 128, 0)',
+      'rgb(0, 0, 128)',
+      'rgb(128, 0, 128)',
+      'rgb(0, 128, 128)',
+    ];
+    const displayed_teams = [
+      'sanma',  // My team
+      'All your sound are belong to us',
+      'Unagi',
+      'is_topcoder_dead',
+      'manarimo',
+      'Spica',
+      'TBD',
+      'ichyo',
+      'mintokukai',
+      'カフェテリアルネ',
+      'Frictionless Bananas',
+    ];
+
+    const options = {
+      fill: false,
+      interaction: {
+        intersect: false
+      },
+      radius: 0,
+    };
+
+    let datasets = [];
+    for (const [name, value] of Object.entries(scoreboard)) {
+      const team_data = {
+        label: name,
+        data: value,
+        borderColor: colors[datasets.length % colors.length],
+        spanGaps: true,
+        hidden: !displayed_teams.includes(name),
+      };
+      datasets.push(team_data);
+    }
+
+    const config = {
+      type: 'line',
+      data: {
+        labels: [...Array(60 * 24 * 3)].map((_, i) => i),
+        datasets: datasets,
+      },
+      options: options
+    };
+    new Chart(canvas, config);
+  </script>
+  <title>ICFPC 2023 Score flow</title>
+</head>
+
+<body>
+  <h3>ICFPC 2023 scoreboard timeline</h3>
+  <div><canvas id="scoreboard"></canvas></div>
+</body>
